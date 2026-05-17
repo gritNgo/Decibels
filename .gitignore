@@ -364,7 +364,12 @@ MigrationBackup/
 FodyWeavers.xsd
 
 
+# .NET configuration overrides
 # Ignore specific environment-specific appsettings files
 appsettings.*.json
+.idea/
+*.user
+
+
 
 
