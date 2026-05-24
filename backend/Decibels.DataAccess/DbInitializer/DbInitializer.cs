@@ -17,13 +17,13 @@ namespace Decibels.DataAccess.DbInitializer
     public class DbInitializer : IDbInitializer
     {
         private readonly ApplicationDbContext _db;
-        private readonly UserManager<IdentityUser> _userManager;
+        private readonly UserManager<ApplicationUser> _userManager;
         private readonly RoleManager<IdentityRole> _roleManager;
         private readonly IConfiguration _configuration; // Added to use Azure App Service secrets instead of hard coding sensitive data
 
         public DbInitializer(
             ApplicationDbContext db,
-            UserManager<IdentityUser> userManager,
+            UserManager<ApplicationUser> userManager,
             RoleManager<IdentityRole> roleManager, 
             IConfiguration configuration)
         {
@@ -72,8 +72,8 @@ namespace Decibels.DataAccess.DbInitializer
                 _roleManager.CreateAsync(new IdentityRole(StaticDetails.Role_Admin)).GetAwaiter().GetResult();
                 _roleManager.CreateAsync(new IdentityRole(StaticDetails.Role_Company)).GetAwaiter().GetResult();
 
-                // if there are no Roles, create admin user
-                _userManager.CreateAsync(new ApplicationUser
+                // 1. Capture the identity result
+                var result = _userManager.CreateAsync(new ApplicationUser
                 {
                     UserName = adminEmail,
                     Email = adminEmail,
@@ -85,10 +85,21 @@ namespace Decibels.DataAccess.DbInitializer
                     City = "Configured City",
                 }, adminPassword).GetAwaiter().GetResult();
 
-                // once it's created, retrieve by email from db 
-                ApplicationUser user = _db.ApplicationUsers.FirstOrDefault(u => u.Email == adminEmail);
-
-                _userManager.AddToRoleAsync(user, StaticDetails.Role_Admin).GetAwaiter().GetResult();
+// 2. Explicitly validate execution success
+                if (result.Succeeded)
+                {
+                    ApplicationUser user = _db.ApplicationUsers.FirstOrDefault(u => u.Email == adminEmail);
+                    if (user != null)
+                    {
+                        _userManager.AddToRoleAsync(user, StaticDetails.Role_Admin).GetAwaiter().GetResult();
+                    }
+                }
+                else 
+                {
+                    // Fail fast and clear out exactly why it failed (e.g., Password policy violation)
+                    var errors = string.Join(", ", result.Errors.Select(e => e.Description));
+                    throw new Exception($"CRITICAL: Admin user seeding failed. Errors: {errors}");
+                }
             }
             return;
         }
