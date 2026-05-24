@@ -1,123 +1,155 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Decibels.DataAccess.Data;
 using Decibels.Models;
 using Decibels.DataAccess.Repository.IRepository;
 using Microsoft.AspNetCore.Authorization;
 using Decibels.Utility;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace DecibelsWeb.Areas.Admin.Controllers
 {
-    [Area("Admin")]
-    [Authorize(Roles = StaticDetails.Role_Admin)]
-    public class CategoryController : Controller
+    [ApiController]
+    [Route("api/[controller]")]
+    [Authorize(Roles = StaticDetails.Role_Admin)] // Keeps the endpoint locked down strictly to Admin JWT tokens
+    public class CategoryController : ControllerBase
     {
-        // UnitOfWork internally creates an object/implementation of CategoryRepository
         private readonly IUnitOfWork _unitOfWork;
+        private readonly ILogger<CategoryController> _logger;
 
-        public CategoryController(IUnitOfWork unitOfWork)
+        public CategoryController(IUnitOfWork unitOfWork, ILogger<CategoryController> logger)
         {
             _unitOfWork = unitOfWork;
+            _logger = logger;
         }
 
-        public IActionResult Index()
+        // GET: api/category
+        [HttpGet]
+        public ActionResult<IEnumerable<Category>> GetAll()
         {
-            // specify which object/repository being worked on to call methods
-            List<Category> objCategoryList = _unitOfWork.Category.GetAll().ToList();
-            return View(objCategoryList);
-        }
-
-        // When creating a new from an existing page, first create an action method
-        // that will be invoked on the controller. Then the View.
-        public IActionResult Create()
-        {
-            return View();
-        }
-
-        // This annotation identifies an action that supports the HTTP POST method from the Create Category form (When this is absent it's always a GET)
-        [HttpPost]
-        public IActionResult Create(Category obj) // an object that takes the Category Model properties of the form will be created
-        {
-            if (obj.Name == obj.DisplayOrder.ToString())
+            try
             {
-                ModelState.AddModelError("name", "Display Order cannot be the same as Category Name");
+                List<Category> categoryList = _unitOfWork.Category.GetAll().ToList();
+                return Ok(categoryList);
             }
-
-            if (ModelState.IsValid) // by checking obj against the Category Model and it's validations
+            catch (Exception ex)
             {
-                // Add is an Entity Framework method that tracks the given entity and any changes to be made in the database
+                _logger.LogError(ex, "Error pulling all category listings.");
+                return StatusCode(500, "Internal data layer exception.");
+            }
+        }
+
+        // GET: api/category/5
+        [HttpGet("{id}")]
+        public ActionResult<Category> GetById(int id)
+        {
+            try
+            {
+                if (id <= 0)
+                {
+                    return BadRequest(new { message = "Invalid category tracking identifier index mapping." });
+                }
+
+                Category? category = _unitOfWork.Category.Get(c => c.Id == id);
+                if (category == null)
+                {
+                    return NotFound(new { message = $"Category trace target with ID {id} not found." });
+                }
+
+                return Ok(category);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error pulling specific category target asset: {id}");
+                return StatusCode(500, "Internal operational exception.");
+            }
+        }
+
+        // POST: api/category
+        [HttpPost]
+        public IActionResult Create([FromBody] Category obj)
+        {
+            try
+            {
+                // Custom business validation check
+                if (obj.Name == obj.DisplayOrder.ToString())
+                {
+                    ModelState.AddModelError("name", "Display Order parameters cannot match Category Name text properties.");
+                }
+
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState); // Returns a clean JSON array mapping the exact structural failures
+                }
+
                 _unitOfWork.Category.Add(obj);
-                _unitOfWork.Save();  // creates the Category on the database
+                _unitOfWork.Save();
 
-                TempData["success"] = "Category created successfully"; // Displays this message on the next immediate render only
-
-                // Redirects to the Index view which is reloaded once Category is added
-                return RedirectToAction("Index", "Category");
+                // Returns standard HTTP 201 Created containing a link pointer metadata index to the new asset entry path
+                return CreatedAtAction(nameof(GetById), new { id = obj.Id }, new { success = true, data = obj });
             }
-            return View();
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Transaction fault processing category database insertion.");
+                return StatusCode(500, "Persistence layer validation write error.");
+            }
         }
 
-        public IActionResult Edit(int? id)
+        // PUT: api/category
+        [HttpPut]
+        public IActionResult Update([FromBody] Category obj)
         {
-            if (id == null || id == 0)
+            try
             {
-                return NotFound(); // or return an Error View
-            }
+                if (obj.Id <= 0)
+                {
+                    return BadRequest(new { message = "Missing structural validation index parameters on target mutation entity." });
+                }
 
-            Category? categoryFromDb = _unitOfWork.Category.Get(category => category.Id == id);
-            /* Other ways to retrieve a record
-             * Category? categoryFromDb1 = _db.Categories.FirstOrDefault(category => category.Id==id);
-             * Category? categoryFromDb2 = _db.Categories.Where(category => category.Id == id).FirstOrDefault();
-            */
+                if (!ModelState.IsValid)
+                {
+                    return BadRequest(ModelState);
+                }
 
-            if (categoryFromDb == null)
-            {
-                return NotFound();
-            }
-            return View(categoryFromDb);
-        }
-
-        [HttpPost]
-        public IActionResult Edit(Category obj)
-        {
-            if (ModelState.IsValid)
-            {
                 _unitOfWork.Category.Update(obj);
                 _unitOfWork.Save();
-                TempData["success"] = "Category updated successfully";
-                return RedirectToAction("Index", "Category");
+
+                return Ok(new { success = true, message = "Category parameters synchronized successfully.", data = obj });
             }
-            return View();
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Transaction crash handling modification entities inside item key context: {obj.Id}");
+                return StatusCode(500, "Persistence layer mutation tracking fault.");
+            }
         }
 
-        public IActionResult Delete(int? id)
+        // DELETE: api/category/5
+        [HttpDelete("{id}")]
+        public IActionResult Delete(int id)
         {
-            if (id == null || id == 0)
+            try
             {
-                return NotFound();
-            }
+                if (id <= 0)
+                {
+                    return BadRequest(new { message = "Invalid asset deletion indexing request." });
+                }
 
-            Category? categoryFromDb = _unitOfWork.Category.Get(category => category.Id == id);
-            if (categoryFromDb == null)
+                Category? obj = _unitOfWork.Category.Get(c => c.Id == id);
+                if (obj == null)
+                {
+                    return NotFound(new { message = $"Target category deletion target {id} could not be traced." });
+                }
+
+                _unitOfWork.Category.Remove(obj);
+                _unitOfWork.Save();
+
+                return Ok(new { success = true, message = "Category resource completely wiped out from context records." });
+            }
+            catch (Exception ex)
             {
-                return NotFound();
+                _logger.LogError(ex, $"Crash tracking constraint bounds during deletion execution loop inside target index: {id}");
+                return StatusCode(500, "Data constraint deletion operational conflict failure.");
             }
-            return View(categoryFromDb);
-        }
-
-        [HttpPost, ActionName("Delete")]
-        public IActionResult DeletePOST(int? id)
-        {
-            Category? obj = _unitOfWork.Category.Get(category => category.Id == id);
-
-            if (obj == null)
-            {
-                return NotFound();
-            }
-
-            _unitOfWork.Category.Remove(obj);
-            _unitOfWork.Save();
-            TempData["success"] = "Category deleted successfully";
-            return RedirectToAction("Index");
         }
     }
 }

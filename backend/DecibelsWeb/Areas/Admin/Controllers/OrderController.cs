@@ -1,253 +1,315 @@
-﻿using Decibels.DataAccess.Repository;
-using Decibels.DataAccess.Repository.IRepository;
+﻿using Decibels.DataAccess.Repository.IRepository;
 using Decibels.Models;
 using Decibels.Models.ViewModels;
 using Decibels.Utility;
 using Microsoft.AspNetCore.Authorization;
-using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc;
-using Microsoft.Extensions.Configuration.UserSecrets;
+using Microsoft.Extensions.Configuration;
 using Stripe;
 using Stripe.Checkout;
-using System.Diagnostics;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 
 namespace DecibelsWeb.Areas.Admin.Controllers
 {
-    [Area("Admin")]
+    [ApiController]
+    [Route("api/[controller]")]
     [Authorize]
-    public class OrderController : Controller
+    public class OrderController : ControllerBase
     {
-
         private readonly IUnitOfWork _unitOfWork;
-        [BindProperty]
-        public OrderVM OrderVM { get; set; }
+        private readonly ILogger<OrderController> _logger;
+        private readonly IConfiguration _configuration;
 
-        public OrderController(IUnitOfWork unitOfWork)
+        public OrderController(IUnitOfWork unitOfWork, ILogger<OrderController> logger, IConfiguration configuration)
         {
             _unitOfWork = unitOfWork;
+            _logger = logger;
+            _configuration = configuration;
         }
 
-        public IActionResult Index()
+        // GET: api/order
+        [HttpGet]
+        public ActionResult<IEnumerable<OrderHeader>> GetAll([FromQuery] string status)
         {
-            return View();
-        }
-
-        public IActionResult Details(int orderId)
-        {
-            // based on orderId populate VM
-            OrderVM = new()
+            try
             {
-                OrderHeader = _unitOfWork.OrderHeader
-                .Get(u => u.Id == orderId, includeProperties: "ApplicationUser"),
-                OrderDetail = _unitOfWork.OrderDetail.GetAll(u=>u.OrderHeaderId==orderId, includeProperties:"Product")
-            };
-            return View(OrderVM);
-        }
+                IEnumerable<OrderHeader> objOrderHeaders;
 
-        [HttpPost]
-        [Authorize(Roles = StaticDetails.Role_Admin+","+StaticDetails.Role_Employee)]
-        public IActionResult UpdateOrderDetails()
-        {
-            var orderHeaderFromDb = _unitOfWork.OrderHeader.Get(u=>u.Id==OrderVM.OrderHeader.Id); // the id passed in the hidden input field of the view
-            // map the fields to update
-            orderHeaderFromDb.Name = OrderVM.OrderHeader.Name;
-            orderHeaderFromDb.PhoneNumber = OrderVM.OrderHeader.PhoneNumber;
-            orderHeaderFromDb.Street = OrderVM.OrderHeader.Street;
-            orderHeaderFromDb.City = OrderVM.OrderHeader.City;
-            orderHeaderFromDb.State = OrderVM.OrderHeader.State;
-            orderHeaderFromDb.PostalCode = OrderVM.OrderHeader.PostalCode;
-
-            if (!string.IsNullOrEmpty(OrderVM.OrderHeader.Courier))
-            {
-                orderHeaderFromDb.Courier = OrderVM.OrderHeader.Courier;
-            }
-            if (!string.IsNullOrEmpty(OrderVM.OrderHeader.TrackingNumber))
-            {
-                orderHeaderFromDb.TrackingNumber = OrderVM.OrderHeader.TrackingNumber;
-            }
-            _unitOfWork.OrderHeader.Update(orderHeaderFromDb);
-            _unitOfWork.Save();
-
-            TempData["Success"] = "Order Details Updated Successfully.";
-
-            return RedirectToAction(nameof(Details), new { orderId = orderHeaderFromDb.Id}); // redirect and update Id in database
-        }
-
-        [HttpPost]
-        [Authorize(Roles = StaticDetails.Role_Admin + "," + StaticDetails.Role_Employee)]
-        public IActionResult StartProcessing()
-        {
-            _unitOfWork.OrderHeader.UpdateStatus(OrderVM.OrderHeader.Id, StaticDetails.StatusInProcess);
-            _unitOfWork.Save();
-            TempData["Success"] = "Order Details Updated Successfully.";
-            return RedirectToAction(nameof(Details), new { orderId = OrderVM.OrderHeader.Id});
-        }
-
-        [HttpPost]
-        [Authorize(Roles = StaticDetails.Role_Admin + "," + StaticDetails.Role_Employee)]
-        public IActionResult ShipOrder()
-        {
-            var orderHeader = _unitOfWork.OrderHeader.Get(u=>u.Id == OrderVM.OrderHeader.Id);
-            orderHeader.TrackingNumber = OrderVM.OrderHeader.TrackingNumber;
-            orderHeader.Courier = OrderVM.OrderHeader.Courier;
-            orderHeader.OrderStatus = StaticDetails.StatusShipped;
-            orderHeader.ShippingDate = DateTime.Now;
-
-            if (orderHeader.PaymentStatus == StaticDetails.PaymentStatusDelayedPayment) {
-                orderHeader.PaymentDueDate = DateOnly.FromDateTime(DateTime.Now.AddDays(30));
-            }
-
-            _unitOfWork.OrderHeader.Update(orderHeader);
-            _unitOfWork.Save();
-            TempData["Success"] = "Order Shipped Successfully.";
-            return RedirectToAction(nameof(Details), new { orderId = OrderVM.OrderHeader.Id });
-        }
-
-        [HttpPost]
-        [Authorize(Roles = StaticDetails.Role_Admin + "," + StaticDetails.Role_Employee)]
-        public IActionResult CancelOrder()
-        {
-            var orderHeader = _unitOfWork.OrderHeader.Get(u=> u.Id == OrderVM.OrderHeader.Id);
-
-            if (orderHeader.PaymentStatus == StaticDetails.PaymentStatusApproved)
-            {
-                var options = new RefundCreateOptions()
+                // Check roles dynamically from token claims
+                if (User.IsInRole(StaticDetails.Role_Admin) || User.IsInRole(StaticDetails.Role_Employee))
                 {
-                    Reason = RefundReasons.RequestedByCustomer,
-                    PaymentIntent = orderHeader.PaymentIntentId
+                    objOrderHeaders = _unitOfWork.OrderHeader.GetAll(includeProperties: "ApplicationUser").ToList();
+                }
+                else
+                {
+                    var claimsIdentity = User.Identity as ClaimsIdentity;
+                    var userId = claimsIdentity?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
+                    
+                    if (string.IsNullOrEmpty(userId)) return Unauthorized();
+
+                    objOrderHeaders = _unitOfWork.OrderHeader.GetAll(u => u.ApplicationUserId == userId, includeProperties: "ApplicationUser");
+                }
+
+                switch (status?.ToLower())
+                {
+                    case "pending":
+                        objOrderHeaders = objOrderHeaders.Where(u => u.PaymentStatus == StaticDetails.PaymentStatusDelayedPayment);
+                        break;
+                    case "inprocess":
+                        objOrderHeaders = objOrderHeaders.Where(u => u.OrderStatus == StaticDetails.StatusInProcess);
+                        break;
+                    case "completed":
+                        objOrderHeaders = objOrderHeaders.Where(u => u.OrderStatus == StaticDetails.StatusShipped);
+                        break;
+                    case "approved":
+                        objOrderHeaders = objOrderHeaders.Where(u => u.OrderStatus == StaticDetails.StatusApproved);
+                        break;
+                }
+
+                return Ok(objOrderHeaders);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to pull filterable order collections.");
+                return StatusCode(500, "Internal data pipeline error.");
+            }
+        }
+
+        // GET: api/order/5
+        [HttpGet("{id}")]
+        public ActionResult<OrderVM> GetDetails(int id)
+        {
+            try
+            {
+                var orderHeader = _unitOfWork.OrderHeader.Get(u => u.Id == id, includeProperties: "ApplicationUser");
+                if (orderHeader == null) return NotFound(new { message = "Order not found." });
+
+                var orderDetails = _unitOfWork.OrderDetail.GetAll(u => u.OrderHeaderId == id, includeProperties: "Product");
+
+                OrderVM orderVM = new()
+                {
+                    OrderHeader = orderHeader,
+                    OrderDetail = orderDetails
                 };
 
-                var service = new RefundService();
-                Refund refund = service.Create(options);
-
-                _unitOfWork.OrderHeader.UpdateStatus(orderHeader.Id, StaticDetails.StatusCancelled, StaticDetails.StatusRefunded);
+                return Ok(orderVM);
             }
-
-            else
+            catch (Exception ex)
             {
-                _unitOfWork.OrderHeader.UpdateStatus(orderHeader.Id, StaticDetails.StatusCancelled);
+                _logger.LogError(ex, $"Failed to assemble details graph for order {id}.");
+                return StatusCode(500, "Operational extraction error.");
             }
+        }
+
+        // POST: api/order/update
+        [HttpPost("update")]
+        [Authorize(Roles = StaticDetails.Role_Admin + "," + StaticDetails.Role_Employee)]
+        public IActionResult UpdateOrderDetails([FromBody] OrderHeader updatedOrderHeader)
+        {
+            try
+            {
+                var orderHeaderFromDb = _unitOfWork.OrderHeader.Get(u => u.Id == updatedOrderHeader.Id);
+                if (orderHeaderFromDb == null) return NotFound(new { message = "Target order record missing." });
+
+                orderHeaderFromDb.Name = updatedOrderHeader.Name;
+                orderHeaderFromDb.PhoneNumber = updatedOrderHeader.PhoneNumber;
+                orderHeaderFromDb.Street = updatedOrderHeader.Street;
+                orderHeaderFromDb.City = updatedOrderHeader.City;
+                orderHeaderFromDb.State = updatedOrderHeader.State;
+                orderHeaderFromDb.PostalCode = updatedOrderHeader.PostalCode;
+
+                if (!string.IsNullOrEmpty(updatedOrderHeader.Courier)) orderHeaderFromDb.Courier = updatedOrderHeader.Courier;
+                if (!string.IsNullOrEmpty(updatedOrderHeader.TrackingNumber)) orderHeaderFromDb.TrackingNumber = updatedOrderHeader.TrackingNumber;
+
+                _unitOfWork.OrderHeader.Update(orderHeaderFromDb);
                 _unitOfWork.Save();
-                TempData["Success"] = "Order Cancelled Successfully.";
-                return RedirectToAction(nameof(Details), new { orderId = OrderVM.OrderHeader.Id });
-        }
 
-        [ActionName("Details")]
-        [HttpPost]
-        public IActionResult Details_PAY_NOW()
-        {
-            //  based on OrderHeader.Id, retrieve and populate again because when POSTing data can be lost
-            OrderVM.OrderHeader = _unitOfWork.OrderHeader
-                .Get(u=> u.Id == OrderVM.OrderHeader.Id, includeProperties: "ApplicationUser");
-            OrderVM.OrderDetail = _unitOfWork.OrderDetail
-                .GetAll(u => u.OrderHeaderId == OrderVM.OrderHeader.Id, includeProperties: "Product");
-
-            // stripe logic
-            var domain = Request.Scheme + "://" + Request.Host.Value + "/";     // this gets the domain dynamically for localhost or website
-            var options = new Stripe.Checkout.SessionCreateOptions
-            {
-                SuccessUrl = domain + $"admin/order/PaymentConfirmation?orderHeaderId={OrderVM.OrderHeader.Id}",
-                CancelUrl = domain + $"admin/order/details?orderId={OrderVM.OrderHeader.Id}",
-                LineItems = new List<Stripe.Checkout.SessionLineItemOptions>(),
-                Mode = "payment",
-            };
-
-            foreach (var item in OrderVM.OrderDetail)
-            {
-                var sessionLineItem = new Stripe.Checkout.SessionLineItemOptions
-                {
-                    // data used to create a new Price object
-                    PriceData = new Stripe.Checkout.SessionLineItemPriceDataOptions
-                    {
-                        UnitAmount = (long)(item.Price * 100), // €20.50 => 2050
-                        Currency = "usd",
-                        ProductData = new Stripe.Checkout.SessionLineItemPriceDataProductDataOptions
-                        {
-                            Name = item.Product.Name
-                        }
-                    },
-                    Quantity = item.Quantity
-                };
-                options.LineItems.Add(sessionLineItem);
+                return Ok(new { success = true, message = "Order logistical details updated successfully." });
             }
-
-            var service = new Stripe.Checkout.SessionService();
-            Session session = service.Create(options);
-            _unitOfWork.OrderHeader.UpdateStripePaymentId(OrderVM.OrderHeader.Id, session.Id, session.PaymentIntentId);
-            _unitOfWork.Save();
-
-            // URL to redirect to
-            Response.Headers.Add("Location", session.Url);
-            // redirect to URL with this status code
-            return new StatusCodeResult(303);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Transaction fault processing operational order patch adjustments.");
+                return StatusCode(500, "Data storage tracking modification failure.");
+            }
         }
 
-        public IActionResult PaymentConfirmation(int orderHeaderId)
+        // POST: api/order/start-processing/5
+        [HttpPost("start-processing/{id}")]
+        [Authorize(Roles = StaticDetails.Role_Admin + "," + StaticDetails.Role_Employee)]
+        public IActionResult StartProcessing(int id)
         {
-            OrderHeader orderHeader = _unitOfWork.OrderHeader.Get(u => u.Id == orderHeaderId);
-            if (orderHeader.PaymentStatus == StaticDetails.PaymentStatusDelayedPayment)
+            try
             {
-                // this is a Company
+                var orderHeader = _unitOfWork.OrderHeader.Get(u => u.Id == id);
+                if (orderHeader == null) return NotFound();
+
+                _unitOfWork.OrderHeader.UpdateStatus(id, StaticDetails.StatusInProcess);
+                _unitOfWork.Save();
+
+                return Ok(new { success = true, message = "Order workflow status transitioned to In-Process." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed transition state parameters on order context: {id}");
+                return StatusCode(500, "Workflow modification exception.");
+            }
+        }
+
+        // POST: api/order/ship
+        [HttpPost("ship")]
+        [Authorize(Roles = StaticDetails.Role_Admin + "," + StaticDetails.Role_Employee)]
+        public IActionResult ShipOrder([FromBody] OrderHeader shipmentDetails)
+        {
+            try
+            {
+                var orderHeader = _unitOfWork.OrderHeader.Get(u => u.Id == shipmentDetails.Id);
+                if (orderHeader == null) return NotFound();
+
+                orderHeader.TrackingNumber = shipmentDetails.TrackingNumber;
+                orderHeader.Courier = shipmentDetails.Courier;
+                orderHeader.OrderStatus = StaticDetails.StatusShipped;
+                orderHeader.ShippingDate = DateTime.Now;
+
+                if (orderHeader.PaymentStatus == StaticDetails.PaymentStatusDelayedPayment)
+                {
+                    orderHeader.PaymentDueDate = DateOnly.FromDateTime(DateTime.Now.AddDays(30));
+                }
+
+                _unitOfWork.OrderHeader.Update(orderHeader);
+                _unitOfWork.Save();
+
+                return Ok(new { success = true, message = "Logistical shipment manifest synchronized completely." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed executing logistical validation shipping routines.");
+                return StatusCode(500, "Logistics write transaction failure.");
+            }
+        }
+
+        // POST: api/order/cancel/5
+        [HttpPost("cancel/{id}")]
+        [Authorize(Roles = StaticDetails.Role_Admin + "," + StaticDetails.Role_Employee)]
+        public IActionResult CancelOrder(int id)
+        {
+            try
+            {
+                var orderHeader = _unitOfWork.OrderHeader.Get(u => u.Id == id);
+                if (orderHeader == null) return NotFound();
+
+                if (orderHeader.PaymentStatus == StaticDetails.PaymentStatusApproved)
+                {
+                    var options = new RefundCreateOptions()
+                    {
+                        Reason = RefundReasons.RequestedByCustomer,
+                        PaymentIntent = orderHeader.PaymentIntentId
+                    };
+
+                    var service = new RefundService();
+                    Refund refund = service.Create(options);
+
+                    _unitOfWork.OrderHeader.UpdateStatus(orderHeader.Id, StaticDetails.StatusCancelled, StaticDetails.StatusRefunded);
+                }
+                else
+                {
+                    _unitOfWork.OrderHeader.UpdateStatus(orderHeader.Id, StaticDetails.StatusCancelled);
+                }
+
+                _unitOfWork.Save();
+                return Ok(new { success = true, message = "Order successfully aborted and transactional assets refunded." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed safely aborting processing sequences for tracking target: {id}");
+                return StatusCode(500, "Financial processor cancellation rollback failure.");
+            }
+        }
+
+        // POST: api/order/pay-now/5
+        [HttpPost("pay-now/{id}")]
+        public IActionResult PayNow(int id)
+        {
+            try
+            {
+                var orderHeader = _unitOfWork.OrderHeader.Get(u => u.Id == id, includeProperties: "ApplicationUser");
+                if (orderHeader == null) return NotFound();
+
+                var orderDetails = _unitOfWork.OrderDetail.GetAll(u => u.OrderHeaderId == id, includeProperties: "Product");
+
+                var domain = _configuration["FrontendUrl"] 
+                    ?? throw new InvalidOperationException("Frontend URL cloud-native contract configuration missing.");
+
+                var options = new SessionCreateOptions
+                {
+                    SuccessUrl = domain + $"admin/order-confirmation/{id}",
+                    CancelUrl = domain + $"admin/order-details/{id}",
+                    LineItems = new List<SessionLineItemOptions>(),
+                    Mode = "payment",
+                };
+
+                foreach (var item in orderDetails)
+                {
+                    options.LineItems.Add(new SessionLineItemOptions
+                    {
+                        PriceData = new SessionLineItemPriceDataOptions
+                        {
+                            UnitAmount = (long)(item.Price * 100),
+                            Currency = "usd",
+                            ProductData = new SessionLineItemPriceDataProductDataOptions
+                            {
+                                Name = item.Product.Name
+                            }
+                        },
+                        Quantity = item.Quantity
+                    });
+                }
 
                 var service = new SessionService();
-                Session session = service.Get(orderHeader.SessionId);
+                Session session = service.Create(options);
+                _unitOfWork.OrderHeader.UpdateStripePaymentId(id, session.Id, session.PaymentIntentId);
+                _unitOfWork.Save();
 
-                if (session.PaymentStatus.ToLower() == "paid")  // paid is an enum value in PaymentStatus
-                {
-                    // success, so with sessionId it will have the paymentIntentId
-                    _unitOfWork.OrderHeader.UpdateStripePaymentId(orderHeaderId, session.Id, session.PaymentIntentId);
-                    _unitOfWork.OrderHeader.UpdateStatus(orderHeaderId, orderHeader.OrderStatus , StaticDetails.PaymentStatusApproved);
-                    _unitOfWork.Save();
-                }
+                return Ok(new { success = true, checkoutUrl = session.Url });
             }
-            return View(orderHeaderId);
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Failed opening manual checkout interfaces inside transaction context index: {id}");
+                return StatusCode(500, "Financial pipeline instantiation failure.");
+            }
         }
 
-        #region API CALLS
-
-        [HttpGet]
-        public IActionResult GetAll(string status)
+        // POST: api/order/verify-payment/5
+        [HttpPost("verify-payment/{id}")]
+        public IActionResult VerifyPayment(int id)
         {
-            // change from List to IEnumerable for the filtering to work
-            IEnumerable<OrderHeader> objOrderHeaders;
-
-            if (User.IsInRole(StaticDetails.Role_Admin) || User.IsInRole(StaticDetails.Role_Employee))
+            try
             {
-                objOrderHeaders = _unitOfWork.OrderHeader.GetAll(includeProperties: "ApplicationUser").ToList();
-            }
+                OrderHeader orderHeader = _unitOfWork.OrderHeader.Get(u => u.Id == id);
+                if (orderHeader == null) return NotFound();
 
-            else
+                if (orderHeader.PaymentStatus == StaticDetails.PaymentStatusDelayedPayment)
+                {
+                    var service = new SessionService();
+                    Session session = service.Get(orderHeader.SessionId);
+
+                    if (session.PaymentStatus.ToLower() == "paid")
+                    {
+                        _unitOfWork.OrderHeader.UpdateStripePaymentId(id, session.Id, session.PaymentIntentId);
+                        _unitOfWork.OrderHeader.UpdateStatus(id, orderHeader.OrderStatus, StaticDetails.PaymentStatusApproved);
+                        _unitOfWork.Save();
+                        return Ok(new { success = true, paid = true });
+                    }
+                }
+                return Ok(new { success = true, paid = false });
+            }
+            catch (Exception ex)
             {
-                var claimsIdentity = (ClaimsIdentity)User.Identity;
-                var userId= claimsIdentity.FindFirst(ClaimTypes.NameIdentifier).Value;
-
-                objOrderHeaders = _unitOfWork.OrderHeader
-                    .GetAll(u => u.ApplicationUserId == userId, includeProperties: "ApplicationUser");
+                _logger.LogError(ex, $"Critical confirmation block crash on validation lookup indexes for order: {id}");
+                return StatusCode(500, "Payment tracking telemetry exception.");
             }
-
-            switch (status)
-            {
-                case "pending":
-                    objOrderHeaders = objOrderHeaders.Where(u => u.PaymentStatus == StaticDetails.PaymentStatusDelayedPayment);
-                    break;
-                case "inprocess":
-                    objOrderHeaders = objOrderHeaders.Where(u => u.OrderStatus == StaticDetails.StatusInProcess);
-                    break;
-                case "completed":
-                    objOrderHeaders = objOrderHeaders.Where(u => u.OrderStatus == StaticDetails.StatusShipped);
-                    break;
-                case "approved":
-                    objOrderHeaders = objOrderHeaders.Where(u => u.OrderStatus == StaticDetails.StatusApproved);
-                    break;
-                default:
-                    break;
-            }
-            return Json(new { data = objOrderHeaders });
         }
-
-        #endregion
     }
 }
-
-

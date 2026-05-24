@@ -1,91 +1,113 @@
 ﻿using Microsoft.AspNetCore.Mvc;
 using Decibels.DataAccess.Data;
 using Decibels.Models;
-using Decibels.DataAccess.Repository.IRepository;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Decibels.Models.ViewModels;
-using Decibels.Utility;
 using Microsoft.AspNetCore.Authorization;
+using Decibels.Utility;
 using Microsoft.EntityFrameworkCore;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace DecibelsWeb.Areas.Admin.Controllers
 {
-    [Area("Admin")]
-    [Authorize(Roles = StaticDetails.Role_Admin)]
-    public class UserController : Controller
+    [ApiController]
+    [Route("api/[controller]")]
+    [Authorize(Roles = StaticDetails.Role_Admin)] // Strict guard-rail over structural user credentials management records
+    public class UserController : ControllerBase
     {
         private readonly ApplicationDbContext _db;
+        private readonly ILogger<UserController> _logger;
 
-        public UserController(ApplicationDbContext db)
+        public UserController(ApplicationDbContext db, ILogger<UserController> logger)
         {
             _db = db;
+            _logger = logger;
         }
 
-        public IActionResult Index()
-        {
-            return View();
-        }
-
-        
-
-
-        #region API CALLS
-        // Get role of users
+        // GET: api/user
         [HttpGet]
-        public IActionResult GetAll()
+        public ActionResult<IEnumerable<ApplicationUser>> GetAll()
         {
-            List<ApplicationUser> objUserList = _db.ApplicationUsers.Include(u => u.Company).ToList();
-
-            // Role of AspNetUsers table is inside AspNetRoles table and the 2 are joined and mapped by AspNetUserRoles table 
-            // access built-on Identity tables with dbContext by removing the 'AspNet' prefix before the table name i.e. AspNetUserRoles > _db.UserRoles
-            var userRoles = _db.UserRoles.ToList();
-            var roles = _db.Roles.ToList();
-
-            foreach (var user in objUserList)
+            try
             {
-                // based on user's roleId from the UserRoles table where both UserId and RoleId of users are mapped, find the role name from Roles table
-                var roleId = userRoles.FirstOrDefault(u => u.UserId == user.Id).RoleId;
-                // this role needs to be passed into the data, so add a [NotMapped] property in the ApplicationUser model
-                user.Role = roles.FirstOrDefault(u=>u.Id == roleId).Name;  
+                // Ingest explicit query paths to grab lazy-loaded corporate navigation properties
+                List<ApplicationUser> objUserList = _db.ApplicationUsers.Include(u => u.Company).ToList();
 
-                if (user.Company == null)
+                var userRoles = _db.UserRoles.ToList();
+                var roles = _db.Roles.ToList();
+
+                foreach (var user in objUserList)
                 {
-                    user.Company = new Company()
+                    var userRoleMapping = userRoles.FirstOrDefault(u => u.UserId == user.Id);
+                    if (userRoleMapping != null)
                     {
-                        Name = ""
-                    };
+                        var role = roles.FirstOrDefault(u => u.Id == userRoleMapping.RoleId);
+                        if (role != null)
+                        {
+                            user.Role = role.Name;
+                        }
+                    }
+
+                    // Protect client parsing loops against null entity objects by delivering structured fallback values
+                    if (user.Company == null)
+                    {
+                        user.Company = new Company() { Name = string.Empty };
+                    }
                 }
-            }
 
-            return Json(new { data = objUserList });
+                return Ok(objUserList);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to resolve systemic Identity catalog tables graphs.");
+                return StatusCode(500, "Security matrix query subsystem fault.");
+            }
         }
 
-        // Lock any account until a future date
-        [HttpPost]
-        public IActionResult LockUnlock([FromBody]string id)
+        // POST: api/user/lock-unlock
+        [HttpPost("lock-unlock")]
+        public IActionResult LockUnlock([FromBody] string id)
         {
-            var objFromDb = _db.ApplicationUsers.FirstOrDefault(u=> u.Id == id);
-            if (objFromDb == null)
+            try
             {
-                return Json(new { success = false, message = "Error while Locking/Unlocking"});
-            }
+                if (string.IsNullOrEmpty(id))
+                {
+                    return BadRequest(new { message = "Target tracking key signature must be supplied." });
+                }
 
-            if (objFromDb.LockoutEnd != null && objFromDb.LockoutEnd > DateTime.Now)
+                var objFromDb = _db.ApplicationUsers.FirstOrDefault(u => u.Id == id);
+                if (objFromDb == null)
+                {
+                    return NotFound(new { message = "Target identity user record could not be mapped." });
+                }
+
+                bool isCurrentlyLocked = objFromDb.LockoutEnd != null && objFromDb.LockoutEnd > DateTime.Now;
+
+                if (isCurrentlyLocked)
+                {
+                    // Revoke lockout bounds by shifting expiration to baseline execution windows
+                    objFromDb.LockoutEnd = DateTime.Now;
+                }
+                else
+                {
+                    // Enforce structural suspension by projecting constraints 100 years out
+                    objFromDb.LockoutEnd = DateTime.Now.AddYears(100);
+                }
+
+                _db.SaveChanges();
+
+                return Ok(new 
+                { 
+                    success = true, 
+                    message = isCurrentlyLocked ? "Identity access unlocked successfully." : "Identity token access locked down completely.",
+                    isLocked = !isCurrentlyLocked
+                });
+            }
+            catch (Exception ex)
             {
-                // user is locked and needs to be unlocked
-                objFromDb.LockoutEnd = DateTime.Now;
+                _logger.LogError(ex, $"Critical failure handling account containment mutations for user account index: {id}");
+                return StatusCode(500, "Identity state mutation persist failure.");
             }
-
-            else
-            {
-                objFromDb.LockoutEnd = DateTime.Now.AddYears(100);
-            }
-            _db.SaveChanges();
-
-            return Json(new { success = true, message = "Operation Successful" });
         }
-
-        #endregion
-
     }
 }

@@ -1,157 +1,170 @@
 ﻿using Microsoft.AspNetCore.Mvc;
-using Decibels.DataAccess.Data; 
 using Decibels.Models;
 using Decibels.DataAccess.Repository.IRepository;
-using Microsoft.AspNetCore.Mvc.Rendering;
-using Decibels.Models.ViewModels;
-using Decibels.Utility;
 using Microsoft.AspNetCore.Authorization;
+using Decibels.Utility;
 using DecibelsWeb.Services; 
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Threading.Tasks; 
-using System.IO; 
 
 namespace DecibelsWeb.Areas.Admin.Controllers
 {
-    [Area("Admin")]
+    [ApiController]
+    [Route("api/[controller]")]
     [Authorize(Roles = StaticDetails.Role_Admin)]
-    public class ProductController : Controller
+    public class ProductController : ControllerBase
     {
         private readonly IUnitOfWork _unitOfWork;
-        // private readonly IWebHostEnvironment _webHostEnvironment; // No longer needed for image storage
         private readonly IStorageService _storageService;
-        private const string ImageContainerName = "product-images"; // Container name
+        private readonly ILogger<ProductController> _logger;
+        private const string ImageContainerName = "product-images";
 
-        public ProductController(IUnitOfWork unitOfWork, IWebHostEnvironment webhostEnvironment, IStorageService storageService)
+        public ProductController(IUnitOfWork unitOfWork, IStorageService storageService, ILogger<ProductController> logger)
         {
             _unitOfWork = unitOfWork;
-            // _webHostEnvironment = webhostEnvironment; 
             _storageService = storageService;
+            _logger = logger;
         }
 
-        public IActionResult Index()
+        // GET: api/product
+        [HttpGet]
+        public ActionResult<IEnumerable<Product>> GetAll()
         {
-            List<Product> objProductList = _unitOfWork.Product.GetAll(includeProperties: "Category").ToList();
-            return View(objProductList);
-        }
-
-        public IActionResult Upsert(int? id) // Update + Insert
-        {
-            IEnumerable<SelectListItem> CategoryList = _unitOfWork.Category
-                .GetAll().Select(u => new SelectListItem
-                {
-                    Text = u.Name,
-                    Value = u.Id.ToString()
-                });
-
-            ProductVM productVM = new()
+            try
             {
-                CategoryList = CategoryList,
-                Product = new Product()
-            };
-
-            if (id == null || id == 0)
-            {
-                // create
-                return View(productVM);
+                List<Product> productList = _unitOfWork.Product.GetAll(includeProperties: "Category").ToList();
+                return Ok(productList);
             }
-            else
+            catch (Exception ex)
             {
-                // update
-                productVM.Product = _unitOfWork.Product.Get(u => u.Id == id);
-                return View(productVM);
+                _logger.LogError(ex, "Failed to retrieve product database catalog records.");
+                return StatusCode(500, "Internal data layer exception.");
             }
         }
 
+        // GET: api/product/5
+        [HttpGet("{id}")]
+        public ActionResult<Product> GetById(int id)
+        {
+            try
+            {
+                if (id <= 0) return BadRequest(new { message = "Invalid product identifier mapping parameter." });
+
+                Product? product = _unitOfWork.Product.Get(u => u.Id == id, includeProperties: "Category");
+                if (product == null) return NotFound(new { message = $"Product asset {id} could not be traced." });
+
+                return Ok(product);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error tracking product target context item: {id}");
+                return StatusCode(500, "Internal operational exception.");
+            }
+        }
+
+        // POST: api/product
+        // Uses [FromForm] to natively bind binary multipart streams transmitted from the client layout forms
         [HttpPost]
-        public async Task<IActionResult> Upsert(ProductVM productVM, IFormFile? file)
+        public async Task<IActionResult> Create([FromForm] Product product, IFormFile? file)
         {
-            if (ModelState.IsValid)
+            try
             {
-                // Retrieve the existing product if it's an update scenario to get the old ImageUrl
-                string oldImageUrl = null;
-                if (productVM.Product.Id != 0)
-                {
-                    var existingProduct = _unitOfWork.Product.Get(u => u.Id == productVM.Product.Id, tracked: false);
-                    if (existingProduct != null)
-                    {
-                        oldImageUrl = existingProduct.ImageUrl;
-                    }
-                }
+                if (!ModelState.IsValid) return BadRequest(ModelState);
 
                 if (file != null)
                 {
-                    // Delete old image from blob storage if it exists
+                    string newImageUrl = await _storageService.UploadFileAsync(file, ImageContainerName, "images/product");
+                    product.ImageUrl = newImageUrl;
+                }
+
+                _unitOfWork.Product.Add(product);
+                _unitOfWork.Save();
+
+                return CreatedAtAction(nameof(GetById), new { id = product.Id }, new { success = true, data = product });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Transaction collision injecting new binary product metadata targets.");
+                return StatusCode(500, "Cloud storage or write boundary execution failure.");
+            }
+        }
+
+        // PUT: api/product/5
+        [HttpPut("{id}")]
+        public async Task<IActionResult> Update(int id, [FromForm] Product product, IFormFile? file)
+        {
+            try
+            {
+                if (id != product.Id || id <= 0)
+                {
+                    return BadRequest(new { message = "Mismatched or invalid request index route identity signatures." });
+                }
+
+                if (!ModelState.IsValid) return BadRequest(ModelState);
+
+                var existingProduct = _unitOfWork.Product.Get(u => u.Id == id, tracked: false);
+                if (existingProduct == null) return NotFound(new { message = "Target update item trace lost." });
+
+                string oldImageUrl = existingProduct.ImageUrl;
+
+                if (file != null)
+                {
+                    // Erase obsolete historical cloud assets cleanly before re-writing indexes
                     if (!string.IsNullOrEmpty(oldImageUrl))
                     {
                         await _storageService.DeleteFileAsync(oldImageUrl, ImageContainerName);
                     }
 
-                    // Upload the new image to blob storage
-                    // The "images/product" parameter adds a virtual folder structure inside the blob container.
                     string newImageUrl = await _storageService.UploadFileAsync(file, ImageContainerName, "images/product");
-                    productVM.Product.ImageUrl = newImageUrl; // Store the full URL in the database
+                    product.ImageUrl = newImageUrl;
                 }
                 else
                 {
-                    // If no new file is uploaded, retain the existing ImageUrl for an update operation.
-                    // this prevents the image from being cleared on edit if no new image is selected.
-                    if (productVM.Product.Id != 0) // It's an update
-                    {
-                        productVM.Product.ImageUrl = oldImageUrl;
-                    }
-                    // If it's a new product (Id == 0) and no file is provided, ImageUrl will remain null, which is fine.
+                    // Preserve verified baseline tracking asset signatures if no modification is submitted
+                    product.ImageUrl = oldImageUrl;
                 }
 
-                if (productVM.Product.Id == 0)
-                {
-                    _unitOfWork.Product.Add(productVM.Product);
-                }
-                else
-                {
-                    _unitOfWork.Product.Update(productVM.Product);
-                }
+                _unitOfWork.Product.Update(product);
                 _unitOfWork.Save();
-                TempData["success"] = "Product created/updated successfully";
-                return RedirectToAction("Index", "Product");
+
+                return Ok(new { success = true, message = "Product record synchronized seamlessly.", data = product });
             }
-            else
+            catch (Exception ex)
             {
-                productVM.CategoryList = _unitOfWork.Category
-                    .GetAll().Select(u => new SelectListItem
-                    {
-                        Text = u.Name,
-                        Value = u.Id.ToString()
-                    });
-                return View(productVM);
+                _logger.LogError(ex, $"Database tracking adjustment failure for product context signature key: {id}");
+                return StatusCode(500, "Persistence tier asset synchronization collision.");
             }
         }
 
-        [HttpGet]
-        public IActionResult GetAll()
+        // DELETE: api/product/5
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> Delete(int id)
         {
-            List<Product> objProductList = _unitOfWork.Product.GetAll(includeProperties: "Category").ToList();
-            return Json(new { data = objProductList });
-        }
-
-        [HttpDelete]
-        public async Task<IActionResult> Delete(int? id) 
-        {
-            var productToBeDeleted = _unitOfWork.Product.Get(u => u.Id == id);
-            if (productToBeDeleted == null)
+            try
             {
-                return Json(new { success = false, message = "Error while deleting" });
-            }
+                if (id <= 0) return BadRequest(new { message = "Invalid data removal parameter requests." });
 
-            // Delete image from blob storage
-            if (!string.IsNullOrEmpty(productToBeDeleted.ImageUrl))
+                var productToBeDeleted = _unitOfWork.Product.Get(u => u.Id == id);
+                if (productToBeDeleted == null) return NotFound(new { message = "Product record extraction trace target missing." });
+
+                // Orchestrate clean storage lifecycle teardown events sequentially
+                if (!string.IsNullOrEmpty(productToBeDeleted.ImageUrl))
+                {
+                    await _storageService.DeleteFileAsync(productToBeDeleted.ImageUrl, ImageContainerName);
+                }
+
+                _unitOfWork.Product.Remove(productToBeDeleted);
+                _unitOfWork.Save();
+
+                return Ok(new { success = true, message = "Product asset and associated blob records completely purged." });
+            }
+            catch (Exception ex)
             {
-                await _storageService.DeleteFileAsync(productToBeDeleted.ImageUrl, ImageContainerName);
+                _logger.LogError(ex, $"Critical transactional error executing removal loops inside target index: {id}");
+                return StatusCode(500, "Data constraint conflict on sequential purge routines.");
             }
-
-            _unitOfWork.Product.Remove(productToBeDeleted);
-            _unitOfWork.Save();
-
-            return Json(new { success = true, message = "Delete Successful" });
         }
     }
 }
