@@ -5,230 +5,265 @@ using Decibels.Utility;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Stripe.Checkout;
+using System;
+using System.Collections.Generic;
+using System.Linq;
 using System.Security.Claims;
 
 namespace DecibelsWeb.Areas.Customer.Controllers
 {
-    // populates and displays shopping cart UI
-    [Area("customer")]
+    [ApiController]
+    [Route("api/[controller]")]
     [Authorize]
-    public class CartController : Controller
+    public class CartController : ControllerBase
     {
         private readonly IUnitOfWork _unitOfWork;
-        [BindProperty]  // submitted data in Summary View will populate this ViewModel
-        public ShoppingCartVM ShoppingCartVM { get; set; }
+        private readonly ILogger<CartController> _logger;
+        private readonly IConfiguration _configuration;
 
-        public CartController(IUnitOfWork unitOfWork)
+        public CartController(IUnitOfWork unitOfWork, ILogger<CartController> logger, IConfiguration configuration)
         {
             _unitOfWork = unitOfWork;
+            _logger = logger;
+            _configuration = configuration;
         }
 
-        public IActionResult Index()
+        // GET: api/cart
+        [HttpGet]
+        public ActionResult<ShoppingCartVM> GetCart()
         {
-            // get userID of the logged in user
-            var claimsIdentity = (ClaimsIdentity)User.Identity;
-            var userId = claimsIdentity.FindFirst(ClaimTypes.NameIdentifier).Value;
-
-            ShoppingCartVM = new()
+            try
             {
-                ShoppingCartList = _unitOfWork.ShoppingCart.GetAll(
-                    u => u.ApplicationUserId == userId, includeProperties: "Product"),
-                OrderHeader = new()  // so OrderHeader != null and does not throw exception
-            };
-
-            foreach (var cart in ShoppingCartVM.ShoppingCartList)
-            {
-                cart.Price = GetProductPrice(cart);
-                ShoppingCartVM.OrderHeader.OrderTotal += (cart.Price * cart.Quantity);
-            }
-
-            return View(ShoppingCartVM);
-        }
-
-        public IActionResult Summary()
-        {
-            // get userID of the logged in user
-            var claimsIdentity = (ClaimsIdentity)User.Identity;
-            var userId = claimsIdentity.FindFirst(ClaimTypes.NameIdentifier).Value;
-
-            ShoppingCartVM = new()
-            {
-                ShoppingCartList = _unitOfWork.ShoppingCart.GetAll(
-                    u => u.ApplicationUserId == userId, includeProperties: "Product"),
-                OrderHeader = new()  // so OrderHeader != null and does not throw exception
-            };
-
-            ShoppingCartVM.OrderHeader.ApplicationUser = _unitOfWork.ApplicationUser.Get(u => u.Id == userId);
-
-            ShoppingCartVM.OrderHeader.Name = ShoppingCartVM.OrderHeader.ApplicationUser.Name;
-            ShoppingCartVM.OrderHeader.PhoneNumber = ShoppingCartVM.OrderHeader.ApplicationUser.PhoneNumber;
-            ShoppingCartVM.OrderHeader.Street = ShoppingCartVM.OrderHeader.ApplicationUser.Street;
-            ShoppingCartVM.OrderHeader.City = ShoppingCartVM.OrderHeader.ApplicationUser.City;
-            ShoppingCartVM.OrderHeader.State = ShoppingCartVM.OrderHeader.ApplicationUser.State;
-            ShoppingCartVM.OrderHeader.PostalCode = ShoppingCartVM.OrderHeader.ApplicationUser.PostalCode;
-
-
-            foreach (var cart in ShoppingCartVM.ShoppingCartList)
-            {
-                cart.Price = GetProductPrice(cart);
-                ShoppingCartVM.OrderHeader.OrderTotal += (cart.Price * cart.Quantity);
-            }
-            return View(ShoppingCartVM);
-        }
-
-        [HttpPost]
-        [ActionName("Summary")]
-        public IActionResult SummaryPOST()
-        {
-            // get userID of the logged in user
-            var claimsIdentity = (ClaimsIdentity)User.Identity;
-            var userId = claimsIdentity.FindFirst(ClaimTypes.NameIdentifier).Value;
-
-            // already populated in the database thanks to [BindProperty], so no need to create a new instance like in GET
-            // nor explicitly map the properties (ex: ShoppingCartVM.OrderHeader.Name = ShoppingCartVM.OrderHeader.ApplicationUser.Name)
-            ShoppingCartVM.ShoppingCartList = _unitOfWork.ShoppingCart.GetAll(
-                    u => u.ApplicationUserId == userId, includeProperties: "Product");
-
-            ShoppingCartVM.OrderHeader.OrderDate = System.DateTime.Now;
-            ShoppingCartVM.OrderHeader.ApplicationUserId = userId;
-
-            // create a new object instead of populating the navigation property
-            // ShoppingCartVM.OrderHeader.ApplicationUser to avoid duplicate records, but still have access to the ApplicationUser
-            ApplicationUser applicationUser = _unitOfWork.ApplicationUser.Get(u => u.Id == userId);
-
-            foreach (var cart in ShoppingCartVM.ShoppingCartList)
-            {
-                cart.Price = GetProductPrice(cart);
-                ShoppingCartVM.OrderHeader.OrderTotal += (cart.Price * cart.Quantity);
-            }
-
-            if (applicationUser.CompanyId.GetValueOrDefault() == 0)
-            {
-                // regular customer
-                ShoppingCartVM.OrderHeader.PaymentStatus = StaticDetails.PaymentStatusPending;
-                ShoppingCartVM.OrderHeader.OrderStatus = StaticDetails.StatusPending;
-            }
-            else
-            {
-                // company user
-                ShoppingCartVM.OrderHeader.PaymentStatus = StaticDetails.PaymentStatusDelayedPayment;
-                ShoppingCartVM.OrderHeader.OrderStatus = StaticDetails.StatusApproved;
-            }
-
-            /* Adding OrderHeader as a new entity here adds and populates all the navigation properties.
-            * To avoid duplicate entitities from being created when inserting a new record is why a
-			* new ApplicationUser applicationUser was created instead of repopulating
-			* the navigation property ShoppingCartVM.OrderHeader.ApplicationUser */
-
-            _unitOfWork.OrderHeader.Add(ShoppingCartVM.OrderHeader);
-            _unitOfWork.Save();
-            foreach (var cart in ShoppingCartVM.ShoppingCartList)
-            {
-                OrderDetail orderDetail = new()
+                string userId = GetUserIdFromClaims();
+                
+                ShoppingCartVM shoppingCartVM = new()
                 {
-                    ProductId = cart.ProductId,
-                    OrderHeaderId = ShoppingCartVM.OrderHeader.Id,
-                    Price = cart.Price,
-                    Quantity = cart.Quantity,
+                    ShoppingCartList = _unitOfWork.ShoppingCart.GetAll(
+                        u => u.ApplicationUserId == userId, includeProperties: "Product"),
+                    OrderHeader = new()
                 };
-                _unitOfWork.OrderDetail.Add(orderDetail);
+
+                foreach (var cart in shoppingCartVM.ShoppingCartList)
+                {
+                    cart.Price = cart.Product.Price;
+                    shoppingCartVM.OrderHeader.OrderTotal += (cart.Price * cart.Quantity);
+                }
+
+                return Ok(shoppingCartVM);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to retrieve shopping cart collection state.");
+                return StatusCode(500, "Internal tracking infrastructure fault.");
+            }
+        }
+
+        // GET: api/cart/summary
+        [HttpGet("summary")]
+        public ActionResult<ShoppingCartVM> GetSummary()
+        {
+            try
+            {
+                string userId = GetUserIdFromClaims();
+
+                ShoppingCartVM shoppingCartVM = new()
+                {
+                    ShoppingCartList = _unitOfWork.ShoppingCart.GetAll(
+                        u => u.ApplicationUserId == userId, includeProperties: "Product"),
+                    OrderHeader = new()
+                };
+
+                shoppingCartVM.OrderHeader.ApplicationUser = _unitOfWork.ApplicationUser.Get(u => u.Id == userId);
+                shoppingCartVM.OrderHeader.Name = shoppingCartVM.OrderHeader.ApplicationUser.Name;
+                shoppingCartVM.OrderHeader.PhoneNumber = shoppingCartVM.OrderHeader.ApplicationUser.PhoneNumber;
+                shoppingCartVM.OrderHeader.Street = shoppingCartVM.OrderHeader.ApplicationUser.Street;
+                shoppingCartVM.OrderHeader.City = shoppingCartVM.OrderHeader.ApplicationUser.City;
+                shoppingCartVM.OrderHeader.State = shoppingCartVM.OrderHeader.ApplicationUser.State;
+                shoppingCartVM.OrderHeader.PostalCode = shoppingCartVM.OrderHeader.ApplicationUser.PostalCode;
+
+                foreach (var cart in shoppingCartVM.ShoppingCartList)
+                {
+                    cart.Price = cart.Product.Price;
+                    shoppingCartVM.OrderHeader.OrderTotal += (cart.Price * cart.Quantity);
+                }
+
+                return Ok(shoppingCartVM);
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to assemble checkout data summary view models.");
+                return StatusCode(500, "Internal operational tracking layer fault.");
+            }
+        }
+
+        // POST: api/cart/summary
+        [HttpPost("summary")]
+        public IActionResult SubmitOrder([FromBody] OrderHeader postOrderHeader)
+        {
+            try
+            {
+                string userId = GetUserIdFromClaims();
+
+                var shoppingCartList = _unitOfWork.ShoppingCart.GetAll(
+                        u => u.ApplicationUserId == userId, includeProperties: "Product");
+
+                if (!shoppingCartList.Any())
+                {
+                    return BadRequest(new { message = "Cannot checkout an empty shopping cart configuration." });
+                }
+
+                postOrderHeader.OrderDate = DateTime.Now;
+                postOrderHeader.ApplicationUserId = userId;
+                postOrderHeader.OrderTotal = 0; // Explicitly recalculate on the server side to guarantee price safety
+
+                foreach (var cart in shoppingCartList)
+                {
+                    cart.Price = cart.Product.Price;
+                    postOrderHeader.OrderTotal += (cart.Price * cart.Quantity);
+                }
+
+                ApplicationUser applicationUser = _unitOfWork.ApplicationUser.Get(u => u.Id == userId);
+
+                if (applicationUser.CompanyId.GetValueOrDefault() == 0)
+                {
+                    postOrderHeader.PaymentStatus = StaticDetails.PaymentStatusPending;
+                    postOrderHeader.OrderStatus = StaticDetails.StatusPending;
+                }
+                else
+                {
+                    postOrderHeader.PaymentStatus = StaticDetails.PaymentStatusDelayedPayment;
+                    postOrderHeader.OrderStatus = StaticDetails.StatusApproved;
+                }
+
+                _unitOfWork.OrderHeader.Add(postOrderHeader);
                 _unitOfWork.Save();
-            }
 
-            if (applicationUser.CompanyId.GetValueOrDefault() == 0)
-            {
-                // regular customer account so need to get payment
-                // stripe logic
-                var domain = Request.Scheme + "://" + Request.Host.Value + "/";     // this gets the domain dynamically for localhost or website
-                var options = new Stripe.Checkout.SessionCreateOptions
+                foreach (var cart in shoppingCartList)
                 {
-                    SuccessUrl = domain + $"customer/cart/OrderConfirmation?id={ShoppingCartVM.OrderHeader.Id}",
-                    CancelUrl = domain + "customer/cart/index",
-                    LineItems = new List<Stripe.Checkout.SessionLineItemOptions>(),
-                    Mode = "payment",
-                };
-
-                foreach (var item in ShoppingCartVM.ShoppingCartList)
-                {
-                    var sessionLineItem = new Stripe.Checkout.SessionLineItemOptions
+                    OrderDetail orderDetail = new()
                     {
-                        // data used to create a new Price object
-                        PriceData = new Stripe.Checkout.SessionLineItemPriceDataOptions
-                        {
-                            UnitAmount = (long)(item.Price * 100), // €20.50 => 2050
-                            Currency = "usd",
-                            ProductData = new Stripe.Checkout.SessionLineItemPriceDataProductDataOptions
-                            {
-                                Name = item.Product.Name
-                            }
-                        },
-                        Quantity = item.Quantity
+                        ProductId = cart.ProductId,
+                        OrderHeaderId = postOrderHeader.Id,
+                        Price = cart.Price,
+                        Quantity = cart.Quantity,
                     };
-                    options.LineItems.Add(sessionLineItem);
+                    _unitOfWork.OrderDetail.Add(orderDetail);
                 }
-
-                var service = new Stripe.Checkout.SessionService();
-                Session session = service.Create(options);
-                _unitOfWork.OrderHeader.UpdateStripePaymentId(ShoppingCartVM.OrderHeader.Id, session.Id, session.PaymentIntentId);
                 _unitOfWork.Save();
 
-                // URL to redirect to
-                Response.Headers.Add("Location", session.Url);
-                // redirect to URL with this status code
-                return new StatusCodeResult(303);
-            }
-
-
-            return RedirectToAction(nameof(OrderConfirmation), new { id = ShoppingCartVM.OrderHeader.Id });
-        }
-
-        public IActionResult OrderConfirmation(int id)
-        {
-            OrderHeader orderHeader = _unitOfWork.OrderHeader.Get(u => u.Id == id, includeProperties: "ApplicationUser");
-            if (orderHeader.PaymentStatus != StaticDetails.PaymentStatusDelayedPayment)
-            {
-                // this is a Customer order
-
-                var service = new SessionService();
-                Session session = service.Get(orderHeader.SessionId);
-
-                if (session.PaymentStatus.ToLower() == "paid")  // paid is an enum value in PaymentStatus
+                if (applicationUser.CompanyId.GetValueOrDefault() == 0)
                 {
-                    // success, so with sessionId it will have the paymentIntentId
-                    _unitOfWork.OrderHeader.UpdateStripePaymentId(id, session.Id, session.PaymentIntentId);
-                    _unitOfWork.OrderHeader.UpdateStatus(id, StaticDetails.StatusApproved, StaticDetails.PaymentStatusApproved);
-                    _unitOfWork.Save();
-                }
-                // Only one session in the application, so no need to clear based on a key name
-                HttpContext.Session.Clear();
-            }
-            List<ShoppingCart> shoppingCarts = _unitOfWork.ShoppingCart
-                .GetAll(u => u.ApplicationUserId == orderHeader.ApplicationUserId).ToList();
+                    // Stripe pipeline orchestration
+                    // Extract the domain dynamically based on environment execution context
+                    var domain = _configuration["FrontendUrl"] 
+                                 ?? throw new InvalidOperationException("Frontend URL configuration contract missing.");
 
-            // empty shoppingcart after payment
-            _unitOfWork.ShoppingCart.RemoveRange(shoppingCarts);
-            _unitOfWork.Save();
-            return View(id);
+                    var options = new SessionCreateOptions
+                    {
+                        SuccessUrl = domain + $"order-confirmation/{postOrderHeader.Id}",  // Re-target to direct traffic back to the React client engine base
+                        CancelUrl = domain + "cart",
+                        LineItems = new List<SessionLineItemOptions>(),
+                        Mode = "payment",
+                    };
+
+                    foreach (var item in shoppingCartList)
+                    {
+                        options.LineItems.Add(new SessionLineItemOptions
+                        {
+                            PriceData = new SessionLineItemPriceDataOptions
+                            {
+                                UnitAmount = (long)(item.Price * 100),
+                                Currency = "usd",
+                                ProductData = new SessionLineItemPriceDataProductDataOptions
+                                {
+                                    Name = item.Product.Name
+                                }
+                            },
+                            Quantity = item.Quantity
+                        });
+                    }
+
+                    var service = new SessionService();
+                    Session session = service.Create(options);
+                    _unitOfWork.OrderHeader.UpdateStripePaymentId(postOrderHeader.Id, session.Id, session.PaymentIntentId);
+                    _unitOfWork.Save();
+
+                    // Hand down the Stripe engine URL to let the React client coordinate window transition states smoothly
+                    return Ok(new { requiresPayment = true, checkoutUrl = session.Url, orderId = postOrderHeader.Id });
+                }
+
+                return Ok(new { requiresPayment = false, orderId = postOrderHeader.Id });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Critical database crash handling client checkout operations.");
+                return StatusCode(500, "Transactional write constraint crash.");
+            }
         }
 
+        // POST: api/cart/verify/5
+        [HttpPost("verify/{id}")]
+        public IActionResult VerifyPayment(int id)
+        {
+            try
+            {
+                OrderHeader orderHeader = _unitOfWork.OrderHeader.Get(u => u.Id == id, includeProperties: "ApplicationUser");
+                
+                if (orderHeader == null)
+                {
+                    return NotFound(new { message = "Target order configuration trace target could not be recovered." });
+                }
 
+                if (orderHeader.PaymentStatus != StaticDetails.PaymentStatusDelayedPayment)
+                {
+                    var service = new SessionService();
+                    Session session = service.Get(orderHeader.SessionId);
+
+                    if (session.PaymentStatus.ToLower() == "paid")
+                    {
+                        _unitOfWork.OrderHeader.UpdateStripePaymentId(id, session.Id, session.PaymentIntentId);
+                        _unitOfWork.OrderHeader.UpdateStatus(id, StaticDetails.StatusApproved, StaticDetails.PaymentStatusApproved);
+                        _unitOfWork.Save();
+                    }
+                }
+
+                List<ShoppingCart> shoppingCarts = _unitOfWork.ShoppingCart
+                    .GetAll(u => u.ApplicationUserId == orderHeader.ApplicationUserId).ToList();
+
+                _unitOfWork.ShoppingCart.RemoveRange(shoppingCarts);
+                _unitOfWork.Save();
+
+                return Ok(new { success = true, status = orderHeader.OrderStatus });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, $"Error verifying stripe confirmation tracking indexes for order boundary target {id}");
+                return StatusCode(500, "Payment contract confirmation tracking evaluation failure.");
+            }
+        }
+
+        // PATCH: api/cart/plus/5
+        [HttpPatch("plus/{cartId}")]
         public IActionResult Plus(int cartId)
         {
             var cartFromDb = _unitOfWork.ShoppingCart.Get(u => u.Id == cartId);
+            if (cartFromDb == null) return NotFound();
+
             cartFromDb.Quantity += 1;
             _unitOfWork.ShoppingCart.Update(cartFromDb);
             _unitOfWork.Save();
-            return RedirectToAction(nameof(Index));
+            return Ok(new { success = true });
         }
 
+        // PATCH: api/cart/minus/5
+        [HttpPatch("minus/{cartId}")]
         public IActionResult Minus(int cartId)
         {
             var cartFromDb = _unitOfWork.ShoppingCart.Get(u => u.Id == cartId, tracked: true);
+            if (cartFromDb == null) return NotFound();
+
             if (cartFromDb.Quantity <= 1)
             {
-                // remove product from cart
-                HttpContext.Session.SetInt32(StaticDetails.SessionCart, _unitOfWork.ShoppingCart
-                    .GetAll(u => u.ApplicationUserId == cartFromDb.ApplicationUserId).Count() - 1);
                 _unitOfWork.ShoppingCart.Remove(cartFromDb);
             }
             else
@@ -237,23 +272,26 @@ namespace DecibelsWeb.Areas.Customer.Controllers
                 _unitOfWork.ShoppingCart.Update(cartFromDb);
             }
             _unitOfWork.Save();
-            return RedirectToAction(nameof(Index));
+            return Ok(new { success = true });
         }
 
+        // DELETE: api/cart/remove/5
+        [HttpDelete("remove/{cartId}")]
         public IActionResult Remove(int cartId)
         {
-            var cartFromDb = _unitOfWork.ShoppingCart.Get(u => u.Id == cartId, tracked: true); // enable tracking to avoid exception for 'same key value already being tracked'
-            HttpContext.Session.SetInt32(StaticDetails.SessionCart, _unitOfWork.ShoppingCart
-                .GetAll(u=> u.ApplicationUserId == cartFromDb.ApplicationUserId).Count() -1);
+            var cartFromDb = _unitOfWork.ShoppingCart.Get(u => u.Id == cartId, tracked: true);
+            if (cartFromDb == null) return NotFound();
+
             _unitOfWork.ShoppingCart.Remove(cartFromDb);
             _unitOfWork.Save();
-            return RedirectToAction(nameof(Index));
+            return Ok(new { success = true });
         }
 
-
-        private decimal GetProductPrice(ShoppingCart shoppingCart)
+        private string GetUserIdFromClaims()
         {
-            return shoppingCart.Product.Price;
+            var claimsIdentity = User.Identity as ClaimsIdentity;
+            return claimsIdentity?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+                ?? throw new InvalidOperationException("User context index not verified inside active authorization tokens.");
         }
     }
 }

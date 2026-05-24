@@ -10,6 +10,7 @@ using Decibels.DataAccess.DbInitializer;
 using Azure.Storage.Blobs;
 using Decibels.Models;
 using DecibelsWeb.Services;
+using Microsoft.OpenApi.Models;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -22,27 +23,13 @@ var connectionString = builder.Configuration.GetConnectionString("DefaultConnect
 builder.Services.AddDbContext<ApplicationDbContext>(options =>
     options.UseSqlServer(connectionString));
 
-// Identity Pipeline Setup
+// Identity Pipeline Setup (Used for core user/token validation)
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
 
-builder.Services.ConfigureApplicationCookie(options => {
-    options.LoginPath = "/Identity/Account/Login";
-    options.LogoutPath = "/Identity/Account/Logout";
-    options.AccessDeniedPath = "/Identity/Account/AccessDenied";
-});
-
-// Strongly Typed Configuration Mapping (Avoids manual string lookups in controllers)
+// Strongly Typed Configuration Mapping
 builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
-
-builder.Services.AddAuthentication().AddFacebook(options => {
-    options.AppId = builder.Configuration["Authentication:Facebook:AppId"] 
-        ?? throw new InvalidOperationException("Facebook AppId is missing.");
-    options.AppSecret = builder.Configuration["Authentication:Facebook:AppSecret"] 
-        ?? throw new InvalidOperationException("Facebook AppSecret is missing.");
-    options.AccessDeniedPath = "/Identity/Account/ExternalLogin";
-});
 
 // Infrastructure & Storage
 builder.Services.AddSingleton<IStorageService, AzureBlobStorageService>();
@@ -50,33 +37,46 @@ builder.Services.AddScoped<IUnitOfWork, UnitOfWork>();
 builder.Services.AddScoped<IEmailSender, EmailSender>();
 builder.Services.AddScoped<IDbInitializer, DbInitializer>();
 
-// State & Presentation Support
-builder.Services.AddControllersWithViews();
-builder.Services.AddRazorPages();
-builder.Services.AddDistributedMemoryCache();
-builder.Services.AddSession(options => {
-    options.IdleTimeout = TimeSpan.FromMinutes(100);
-    options.Cookie.HttpOnly = true;
-    options.Cookie.IsEssential = true;
+// ---------------------------------------------------------
+// DECOUPLED FRONTEND & API SUPPORT SERVICES
+// ---------------------------------------------------------
+
+// Configure CORS for React frontend channel
+builder.Services.AddCors(options => {
+    options.AddDefaultPolicy(policy => {
+        policy.WithOrigins("http://localhost:5173") //  local Vite dev port
+              .AllowAnyHeader()
+              .AllowAnyMethod();
+    });
+});
+
+// Replace AddControllersWithViews() with lightweight JSON API controllers
+builder.Services.AddControllers();
+
+// Swagger OpenAPI to verify endpoints visually
+builder.Services.AddEndpointsApiExplorer();
+builder.Services.AddSwaggerGen(c => {
+    c.SwaggerDoc("v1", new OpenApiInfo { Title = "Decibels API", Version = "v1" });
 });
 
 var app = builder.Build();
 
 // ---------------------------------------------------------
-// 2. HTTP REQUEST PIPELINE (MIDDLEWARE)
+// HTTP REQUEST MIDDLEWARE PIPELINE 
 // ---------------------------------------------------------
 if (app.Environment.IsDevelopment())
 {
-    app.UseDeveloperExceptionPage(); // Gives clean stack traces locally
-}
-else
-{
-    app.UseExceptionHandler("/Home/Error");
-    app.UseHsts();
+    app.UseDeveloperExceptionPage();
+    // Enable Swagger discovery page inside development mode
+    app.UseSwagger();
+    app.UseSwaggerUI(c => c.SwaggerEndpoint("/swagger/v1/swagger.json", "Decibels API v1"));
 }
 
 app.UseHttpsRedirection();
-app.UseStaticFiles();
+
+// Inject CORS directly into the request processing stream
+app.UseCors(); 
+
 app.UseRouting();
 
 // Global Third-Party Configuration initialization
@@ -85,15 +85,12 @@ StripeConfiguration.ApiKey = stripeSecretKey;
 
 app.UseAuthentication();
 app.UseAuthorization();
-app.UseSession();
 
 // Execution Database Seeding on boot
 SeedDatabase();
 
-app.MapRazorPages();
-app.MapControllerRoute(
-    name: "default",
-    pattern: "{area=Customer}/{controller=Home}/{action=Index}/{id?}");
+// Map API Attribute Controllers instead of server-side Razor/MVC routes
+app.MapControllers();
 
 app.Run();
 
