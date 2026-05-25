@@ -17,7 +17,7 @@ useEffect(() => {
       console.error("API connection error:", err);
       setApiStatus('blocked_by_cors');
     });
-}, [apiUrl]);
+}, [apiUrl]); 
 
   return (
     <MantineProvider defaultColorScheme="dark">
