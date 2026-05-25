@@ -101,3 +101,6 @@ void SeedDatabase()
     var dbInitializer = scope.ServiceProvider.GetRequiredService<IDbInitializer>();
     dbInitializer.Initialize();
 }
+
+// This forces the compiler to expose Program publicly, unlocking it for WebApplicationFactory assembly wrapper used in the integration testsproject
+public partial class Program { }
