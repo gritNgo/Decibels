@@ -74,15 +74,17 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-// Inject CORS directly into the request processing stream
-app.UseCors(); 
-
+// Resolve the route first
 app.UseRouting();
+
+// Inject CORS directly into the request processing stream to the resolved route 
+app.UseCors(); 
 
 // Global Third-Party Configuration initialization
 var stripeSecretKey = builder.Configuration["Stripe:SecretKey"];
 StripeConfiguration.ApiKey = stripeSecretKey;
 
+// Secure the route
 app.UseAuthentication();
 app.UseAuthorization();
 
