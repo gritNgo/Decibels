@@ -41,7 +41,7 @@ namespace Decibels.API.Areas.Customer.Controllers
 
         // GET: api/home/details/5
         [HttpGet("details/{productId}")]
-        public ActionResult<ShoppingCart> GetProductDetails(int productId)
+        public ActionResult<ShoppingCart> GetProductDetails([FromRoute] int productId)
         {
             try
             {

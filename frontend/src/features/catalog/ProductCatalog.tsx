@@ -1,7 +1,9 @@
 import { useEffect, useState } from 'react';
 import { catalogApi } from '../../api/catalog';
 import type { Product } from '../../types';
+import { Link } from 'react-router-dom';
 import { SimpleGrid, Card, Image, Text, Badge, Button, Group, Loader, Alert, Stack, Title, Paper } from '@mantine/core';
+import {   IconMessageCode,   IconWallet,   IconPackage,   IconTruck } from '@tabler/icons-react';
 
 type FetchState = 
   | { status: 'loading' }
@@ -47,7 +49,7 @@ export function ProductCatalog() {
   return (
     <Stack gap="xl">
       {/* FULL-WIDTH UI HERO BANNER (Replaces @section FullWidthBanner) */}
-    <Card p={0} radius="md" withBorder overflow-hidden>
+    <Card p={0} radius="md" withBorder style={{ overflow: 'hidden' }}>
       <Image
         src="/images/banner.png" // Points directly to public/images/banner.png
         alt="Welcome to Decibels Banner"
@@ -67,23 +69,46 @@ export function ProductCatalog() {
 
       {/* MARKETING VALUE BUCKETS */}
       <SimpleGrid cols={{ base: 1, sm: 2, md: 4 }} spacing="md">
-        <Card p="md" radius="sm" bg="dark.6">
-          <Text fw={600} size="sm">Assistance (AI Chatbot coming soon!)</Text>
-          <Text size="xs" c="dimmed" mt="xs">Pre and post sales support at your complete disposal.</Text>
-        </Card>
-        <Card p="md" radius="sm" bg="dark.6">
-          <Text fw={600} size="sm">Secure Payments</Text>
-          <Text size="xs" c="dimmed" mt="xs">Pay safely via Link by Stripe or major standard credit cards.</Text>
-        </Card>
-        <Card p="md" radius="sm" bg="dark.6">
-          <Text fw={600} size="sm">Insured Shipping</Text>
-          <Text size="xs" c="dimmed" mt="xs">We ship via rapid express courier with full asset insurance coverage.</Text>
-        </Card>
-        <Card p="md" radius="sm" bg="dark.6">
-          <Text fw={600} size="sm">Lowest Rates</Text>
-          <Text size="xs" c="dimmed" mt="xs">We do our absolute best to keep operational shipping fees at a baseline minimal cost.</Text>
-        </Card>
-      </SimpleGrid>
+  <Card p="md" radius="md" bg="dark.6" withBorder>
+    <Group gap="sm" mb="xs">
+      <IconMessageCode size={24} color="var(--mantine-color-blue-4)" />
+      <Text fw={600} size="sm">Assistance</Text>
+    </Group>
+    <Text size="xs" c="dimmed">
+      Pre and post sales support at your complete disposal. If there's a problem, you're sure we'll solve it. (AI chatbot coming soon!)
+    </Text>
+  </Card>
+
+  <Card p="md" radius="md" bg="dark.6" withBorder>
+    <Group gap="sm" mb="xs">
+      <IconWallet size={24} color="var(--mantine-color-green-4)" />
+      <Text fw={600} size="sm">Payment</Text>
+    </Group>
+    <Text size="xs" c="dimmed">
+      You can pay for your order using Link (by Stripe) or a major credit card (Visa, Mastercard, Amex, Discover, Diners Club, JCB).
+    </Text>
+  </Card>
+
+  <Card p="md" radius="md" bg="dark.6" withBorder>
+    <Group gap="sm" mb="xs">
+      <IconPackage size={24} color="var(--mantine-color-orange-4)" />
+      <Text fw={600} size="sm">Shipping Cost</Text>
+    </Group>
+    <Text size="xs" c="dimmed">
+      Although we can't offer free shipping, we do our best to keep them at the lowest possible, while maintaining excellent service!
+    </Text>
+  </Card>
+
+  <Card p="md" radius="md" bg="dark.6" withBorder>
+    <Group gap="sm" mb="xs">
+      <IconTruck size={24} color="var(--mantine-color-cyan-4)" />
+      <Text fw={600} size="sm">Shipping Speed</Text>
+    </Group>
+    <Text size="xs" c="dimmed">
+      We ship to most EU countries by express courier and delivery within 36/48h. All shipments are fully insured.
+    </Text>
+  </Card>
+</SimpleGrid>
 
       {/* DYNAMIC DATABASE PRODUCTS VIEW GRID */}
       <Title order={3} c="blue.4" fw={600} mt="lg">Featured Products</Title>
@@ -112,7 +137,13 @@ export function ProductCatalog() {
                 <Text size="lg" fw={700} c="green.4">
                   €{product.price.toFixed(2)}
                 </Text>
-                <Button color="blue" radius="md" size="xs">
+                <Button 
+                  component={Link} 
+                  to={`/product/${product.id}`} 
+                  color="blue" 
+                  radius="md" 
+                  size="xs"
+                >
                   Details
                 </Button>
               </Group>
