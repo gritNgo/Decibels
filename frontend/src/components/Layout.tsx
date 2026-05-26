@@ -1,4 +1,4 @@
-import { AppShell, Group, Anchor, Menu, Button, Container, Text } from '@mantine/core';
+import { AppShell, Group, Anchor, Menu, Button, Container} from '@mantine/core';
 import { Link, Outlet } from 'react-router-dom';
 
 export function Layout() {
@@ -18,11 +18,23 @@ export function Layout() {
       {/* HEADER SECTION (Equivalent to <header> in _Layout.cshtml) */}
       <AppShell.Header px="md">
         <Container size="lg" h="100%">
-          <Group justify="space-between" h="100%">
-            {/* LOGO */}
-            <Anchor component={Link} to="/" fw={700} size="xl" c="blue.5" style={{ textDecoration: 'none' }}>
-              𝄞 Decibels
-            </Anchor>
+          <Group justify="space-between" h="100%">            
+            <Anchor component={Link} to="/" style={{ display: 'flex', alignItems: 'center' }}>
+            <img 
+              src="/images/logo.png" 
+              alt="Decibels Logo" 
+              style={{ 
+                height: '40px',             // Restricts vertical scaling to stay inside the 60px nav bar
+                width: 'auto',              // Auto-calculates horizontal aspect ratio dynamically
+                display: 'block',
+                filter: 'invert(1) brightness(1.5)', // Inverts black text to white/light-silver for dark mode parity
+                transition: 'transform 0.2s ease'    // Smooth micro-interaction transition hint
+              }} 
+              // hover effect
+              onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
+              onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
+            />
+          </Anchor>
 
             {/* NAV NAVIGATION LINKS */}
             <Group gap="md">
