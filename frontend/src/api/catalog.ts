@@ -2,6 +2,19 @@ import type { Product, ShoppingCart } from '../types';
 
 const API_URL = import.meta.env.VITE_API_URL;
 
+  export interface LoginPayload {
+  email: string;
+  password?: string;
+}
+
+export interface AuthResponse {
+  isAuthSuccessful: boolean;
+  token: string;
+  email: string;
+  role: string;
+  errorMessage: string;
+}
+
 export const catalogApi = {
   /**
    * Retrieves all verified items from the public home catalog endpoint
@@ -27,5 +40,27 @@ export const catalogApi = {
     }
     
     return response.json();
+  }, 
+
+
+/**
+   * Dispatches login parameters to the stateless authentication gateway
+   */
+// Update the login execution client method block inside catalogApi:
+login: async (payload: LoginPayload): Promise<AuthResponse> => {
+  const response = await fetch(`${API_URL}/api/auth/login`, {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+      'accept': '*/*'
+    },
+    body: JSON.stringify(payload)
+  });
+
+  const data: AuthResponse = await response.json();
+  if (!response.ok) {
+    throw new Error(data.errorMessage || 'Authentication handshake rejected.');
   }
+  return data;
+}
 };

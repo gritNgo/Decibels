@@ -1,11 +1,11 @@
 import { AppShell, Group, Anchor, Menu, Button, Container} from '@mantine/core';
 import { Link, Outlet } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 
 export function Layout() {
-  // Mock authentication states — placeholders until connection to real JWT/Context storage
-  const isAuthenticated = true; 
-  const isAdmin = true; 
-  const cartCount = 3; 
+ // live reactive hook invocation
+const { isAuthenticated, isAdmin, logout } = useAuth();
+const cartCount = 0; // placehoplder until mount of operational state machine bucket 
 
   return (
     <AppShell
@@ -69,16 +69,16 @@ export function Layout() {
             </Group>
 
             {/* LOGIN / IDENTITY ACTIONS (Equivalent to <partial name="_LoginPartial" />) */}
-            <Group gap="sm">
-              {isAuthenticated ? (
-                <Button variant="light" color="red" size="xs">Logout</Button>
-              ) : (
-                <>
-                  <Button component={Link} to="/login" variant="light" size="xs">Login</Button>
-                  <Button component={Link} to="/register" variant="filled" size="xs">Register</Button>
-                </>
-              )}
-            </Group>
+<Group gap="sm">
+  {isAuthenticated ? (
+    <Button variant="light" color="red" size="xs" onClick={logout}>Logout</Button>
+  ) : (
+    <>
+      <Button component={Link} to="/login" variant="light" size="xs">Login</Button>
+      <Button component={Link} to="/register" variant="filled" size="xs">Register</Button>
+    </>
+  )}
+</Group>
           </Group>
         </Container>
       </AppShell.Header>
