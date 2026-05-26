@@ -11,6 +11,9 @@ using Azure.Storage.Blobs;
 using Decibels.Models;
 using Decibels.API.Services;
 using Microsoft.OpenApi.Models;
+using System.Text; 
+using Microsoft.AspNetCore.Authentication.JwtBearer; 
+using Microsoft.IdentityModel.Tokens;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -27,6 +30,34 @@ builder.Services.AddDbContext<ApplicationDbContext>(options =>
 builder.Services.AddIdentity<ApplicationUser, IdentityRole>()
     .AddEntityFrameworkStores<ApplicationDbContext>()
     .AddDefaultTokenProviders();
+
+// ---------------------------------------------------------
+// JWT AUTHENTICATION CORE CONFIGURATION LAYER
+// ---------------------------------------------------------
+var jwtSection = builder.Configuration.GetSection("JwtSettings");
+var secretKey = Encoding.ASCII.GetBytes(jwtSection.GetValue<string>("Secret")!);
+
+builder.Services.AddAuthentication(options =>
+    {
+        options.DefaultAuthenticateScheme = JwtBearerDefaults.AuthenticationScheme;
+        options.DefaultChallengeScheme = JwtBearerDefaults.AuthenticationScheme;
+    })
+    .AddJwtBearer(options =>
+    {
+        options.RequireHttpsMetadata = !builder.Environment.IsDevelopment(); 
+        options.SaveToken = true;
+        options.TokenValidationParameters = new TokenValidationParameters
+        {
+            ValidateIssuerSigningKey = true,
+            IssuerSigningKey = new SymmetricSecurityKey(secretKey),
+            ValidateIssuer = true,
+            ValidIssuer = jwtSection.GetValue<string>("Issuer"),
+            ValidateAudience = true,
+            ValidAudience = jwtSection.GetValue<string>("Audience"),
+            ValidateLifetime = true,
+            ClockSkew = TimeSpan.Zero
+        };
+    });
 
 // Strongly Typed Configuration Mapping
 builder.Services.Configure<StripeSettings>(builder.Configuration.GetSection("Stripe"));
