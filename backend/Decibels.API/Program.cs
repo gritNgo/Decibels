@@ -14,11 +14,25 @@ using Microsoft.OpenApi.Models;
 using System.Text; 
 using Microsoft.AspNetCore.Authentication.JwtBearer; 
 using Microsoft.IdentityModel.Tokens;
+using Serilog;
+using Serilog.Formatting.Compact;
 
 var builder = WebApplication.CreateBuilder(args);
 
 // ---------------------------------------------------------
-// 1. DATABASE & ARCHITECTURAL CORE SERVICES
+// DIAGNOSTIC OBSERVABILITY SERVICES (SERILOG)
+// ---------------------------------------------------------
+Log.Logger = new LoggerConfiguration()
+    .MinimumLevel.Information()
+    .MinimumLevel.Override("Microsoft", Serilog.Events.LogEventLevel.Warning) // Silence framework boilerplate noise
+    .Enrich.FromLogContext()
+    .WriteTo.Console(new CompactJsonFormatter()) // Forces output into structured prod-ready JSON
+    .CreateLogger();
+
+builder.Host.UseSerilog(); // Injects Serilog into the dependency injection container engine
+
+// ---------------------------------------------------------
+// DATABASE & ARCHITECTURAL CORE SERVICES
 // ---------------------------------------------------------
 
 // .NET 8 automatically cascades config: Base JSON -> Env JSON -> User Secrets -> Env Variables
@@ -104,6 +118,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// This automatically logs every incoming HTTP request method, path, status code, and latency duration as a clean structured JSON log
+app.UseSerilogRequestLogging();
 
 // Resolve the route first
 app.UseRouting();

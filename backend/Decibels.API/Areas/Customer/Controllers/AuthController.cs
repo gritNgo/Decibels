@@ -15,11 +15,13 @@ namespace Decibels.API.Areas.Customer.Controllers
     {
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly IConfiguration _configuration;
+        private readonly ILogger<AuthController> _logger;
 
-        public AuthController(UserManager<ApplicationUser> userManager, IConfiguration configuration)
+        public AuthController(UserManager<ApplicationUser> userManager, IConfiguration configuration, ILogger<AuthController> logger)
         {
             _userManager = userManager;
             _configuration = configuration;
+            _logger = logger;
         }
 
         [HttpPost("login")]
@@ -34,12 +36,17 @@ namespace Decibels.API.Areas.Customer.Controllers
             var user = await _userManager.FindByEmailAsync(loginRequest.Email);
             if (user == null || !await _userManager.CheckPasswordAsync(user, loginRequest.Password))
             {
+                _logger.LogWarning("Security handshake rejected for user entity context tracking: {Email}", loginRequest.Email);
                 return Unauthorized(new AuthResponseDto { IsAuthSuccessful = false, ErrorMessage = "Invalid credentials tracking parameters." });
             }
 
             // Pull roles associated with current tracked identification entry
             var roles = await _userManager.GetRolesAsync(user);
             var primaryRole = roles.FirstOrDefault() ?? "Customer";
+            
+            // Structured telemetry property capture - we pass user Id as a separate argument
+            // this injects it as a queryable database field in tools like Azure Monitor rather than raw string text
+            _logger.LogInformation("Authentication identity verified successfully. UserPrincipalId: {UserId}, AssignedRole: {Role}", user.Id, primaryRole);
 
             // Generate cryptographically signed JWT Token
             var tokenHandler = new JwtSecurityTokenHandler();
