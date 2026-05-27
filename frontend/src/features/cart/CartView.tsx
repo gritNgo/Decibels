@@ -94,7 +94,6 @@ export function CartView() {
             <Title order={2} fw={700} c="white" style={{ textTransform: 'uppercase', letterSpacing: '-0.5px' }}>
               Shopping Cart
             </Title>
-            <Text size="xs" c="dimmed">Decoupled execution checkout boundary channel</Text>
           </Stack>
         </Group>
 

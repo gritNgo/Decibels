@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { catalogApi } from '../../api/catalog';
+import { cartApi } from '../../api/cart';
 import type { ShoppingCart } from '../../types';
 import { 
   Container, 
@@ -29,14 +30,17 @@ type DetailState =
 export function ProductDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
-  const [state, setState] = useState<DetailState>({ status: 'loading' });
+  
+  // If the ID route parameter context is missing entirely, seed the error immediately to satisfy ESLint
+  const [state, setState] = useState<DetailState>(() => 
+    id ? { status: 'loading' } : { status: 'error', message: 'Invalid product identification context.' }
+  );
+  
   const [quantity, setQuantity] = useState<number | string>(1);
+  const [isAdding, setIsAdding] = useState(false);
 
   useEffect(() => {
-    if (!id) {
-      setState({ status: 'error', message: 'Invalid product identification context.' });
-      return;
-    }
+    if (!id) return; // Terminate if checked on initialization
 
     const controller = new AbortController();
     
@@ -52,6 +56,23 @@ export function ProductDetails() {
 
     return () => controller.abort();
   }, [id]);
+
+  const handleAddToCart = async () => {
+  if (!id) return;
+  setIsAdding(true);
+  try {
+    // Call the dedicated POST upsert route instead of PATCH plus
+    // We send the actual product identity context alongside the selected input quantity state counter
+    await cartApi.upsertItem(Number(id), Number(quantity)); 
+    
+    // Success: Seamless transition to the updated shopping cart layout
+    navigate('/cart');
+  } catch (err) {
+    console.error("Failed to append entry to persistent storage:", err);
+  } finally {
+    setIsAdding(false);
+  }
+};
 
   if (state.status === 'loading') {
     return (
@@ -79,7 +100,6 @@ export function ProductDetails() {
 
   return (
     <Container size="lg" py="xl">
-      {/* BACK NAVIGATION BUTTON */}
       <Button 
         component={Link} 
         to="/" 
@@ -93,11 +113,10 @@ export function ProductDetails() {
         BACK TO HOME
       </Button>
 
-      {/* PRIMARY TRANSFORMATION SURFACE PANEL */}
       <Paper shadow="xl" radius="lg" p={{ base: 'md', sm: 'xl' }} bg="dark.7" withBorder style={{ borderColor: 'var(--mantine-color-dark-4)' }}>
-        <Grid columns={12} gutter={{ base: 'xl', md: 50 }} align="center">
+        {/* Standardized the gutter tokens layout to match Mantine's type configuration constraints */}
+        <Grid columns={12} align="center" style={{ gap: 'var(--mantine-spacing-xl)' }}>
           
-          {/* LEFT AXIS: PREMIUM GRAPHIC CONTAINER */}
           <Grid.Col span={{ base: 12, md: 5 }}>
             <Paper radius="md" p="md" bg="dark.8" withBorder style={{ display: 'flex', justifyContent: 'center', overflow: 'hidden' }}>
               <Image
@@ -110,7 +129,6 @@ export function ProductDetails() {
             </Paper>
           </Grid.Col>
 
-          {/* RIGHT AXIS: META LOGIC SPECIFICATION ENGINE */}
           <Grid.Col span={{ base: 12, md: 7 }}>
             <Stack gap="md">
               <div>
@@ -118,7 +136,7 @@ export function ProductDetails() {
                   {product?.category?.name || 'Premium Line'}
                 </Badge>
                 
-                <Title order={1} fw={700} style={{ tracking: '-0.5px', textTransform: 'uppercase' }} c="white">
+                <Title order={1} fw={700} style={{ letterSpacing: '-0.5px', textTransform: 'uppercase' }} c="white">
                   {product?.name}
                 </Title>
               </div>
@@ -132,7 +150,6 @@ export function ProductDetails() {
 
               <Divider my="xs" color="dark.4" />
 
-              {/* DESCRIPTION PANEL WITH SAFE HTML INJECTION (Equivalent to @Html.Raw) */}
               <div style={{ minHeight: '120px' }}>
                 <Text size="sm" fw={400} c="gray.4" style={{ lineHeight: 1.7 }}>
                   {product?.description ? (
@@ -145,9 +162,8 @@ export function ProductDetails() {
 
               <Divider my="xs" color="dark.4" />
 
-              {/* QUANTITY BLOCK & DISPATCH ADD ACTION CHANNEL */}
               <Stack gap="xs" mt="md">
-                <Text size="xs" fw={700} c="dimmed" style={{ textTransform: 'uppercase', tracking: '0.5px' }}>
+                <Text size="xs" fw={700} c="dimmed" style={{ textTransform: 'uppercase', letterSpacing: '0.5px' }}>
                   Select Quantity
                 </Text>
                 
@@ -184,14 +200,13 @@ export function ProductDetails() {
                   </Group>
 
                   <Button 
-                    color="blue" 
-                    size="lg" 
-                    radius="md"
-                    style={{ flexGrow: 1 }}
-                    leftSection={<IconShoppingCart size={20} />}
-                    onClick={() => alert(`Transactional dispatch block initialized! Packing ${quantity} unit(s) of [${product?.name}] into memory layers.`)}
+                    loading={isAdding} 
+                    onClick={handleAddToCart}
+                    size="md" 
+                    color="blue"
+                    leftSection={<IconShoppingCart size={16} />}
                   >
-                    ADD TO CART
+                    Add to Cart
                   </Button>
                 </Group>
               </Stack>

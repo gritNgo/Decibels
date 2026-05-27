@@ -42,6 +42,18 @@ const getAuthHeaders = () => {
 
 export const cartApi = {
   /**
+   * Dispatches a transactional upsert payload to create or increment a product line row
+   */
+  upsertItem: async (productId: number, quantity: number): Promise<{ success: boolean; message: string }> => {
+    const response = await fetch(`${API_URL}/api/cart/upsert`, {
+      method: 'POST',
+      headers: getAuthHeaders(),
+      body: JSON.stringify({ productId, quantity })
+    });
+    if (!response.ok) throw new Error('Failed to synchronize server upsert state.');
+    return response.json();
+  },
+  /**
    * Retrieves the current user's persistent database shopping cart graph wrapper
    */
   getCart: async (): Promise<ShoppingCartVM> => {
