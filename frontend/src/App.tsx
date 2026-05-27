@@ -5,9 +5,9 @@ import { Layout } from './components/Layout';
 import { ProductCatalog } from './features/catalog/ProductCatalog'; 
 import {ProductDetails} from './features/catalog/ProductDetails';
 import {LoginView} from './features/auth/LoginView'
+import { CartView } from './features/cart/CartView';
 import '@mantine/core/styles.css';
 
-const CartView = () => <div><h2>Your Shopping Cart</h2><p>Items persistency processing matrix boundary.</p></div>;
 const OrdersView = () => <div><h2>Order Management</h2><p>Admin transactional processing interface.</p></div>;
 
 function App() {
