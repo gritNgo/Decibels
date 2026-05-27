@@ -14,7 +14,7 @@ namespace Decibels.API.Areas.Customer.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [Authorize]
+    [Authorize] // Enforces mandatory cryptographically signed JWT validation guards over all actions
     public class CartController : ControllerBase
     {
         private readonly IUnitOfWork _unitOfWork;
@@ -26,6 +26,48 @@ namespace Decibels.API.Areas.Customer.Controllers
             _unitOfWork = unitOfWork;
             _logger = logger;
             _configuration = configuration;
+        }
+
+        // ---------------------------------------------------------
+        // CORE TRANSACTIONAL UPSERT GATEWAY
+        // ---------------------------------------------------------
+        // POST: api/cart/upsert
+        [HttpPost("upsert")]
+        public IActionResult UpsertCart([FromBody] ShoppingCart incomingCartItem)
+        {
+            try
+            {
+                string userId = GetUserIdFromClaims();
+                incomingCartItem.ApplicationUserId = userId;
+
+                // Check if this identical product row already exists for this specific identity context
+                ShoppingCart? cartFromDb = _unitOfWork.ShoppingCart.Get(
+                    u => u.ApplicationUserId == userId && u.ProductId == incomingCartItem.ProductId,
+                    tracked: true);
+
+                if (cartFromDb == null)
+                {
+                    // Item does not exist yet; execute a fresh record creation step
+                    if (incomingCartItem.Quantity <= 0) incomingCartItem.Quantity = 1;
+                    _unitOfWork.ShoppingCart.Add(incomingCartItem);
+                    _logger.LogInformation("New record sequence initialized for product item: {ProductId} under user: {UserId}", incomingCartItem.ProductId, userId);
+                }
+                else
+                {
+                    // Item exists; increment the quantity count on the server side safely
+                    cartFromDb.Quantity += incomingCartItem.Quantity;
+                    _unitOfWork.ShoppingCart.Update(cartFromDb);
+                    _logger.LogInformation("Quantity increments updated safely for product item: {ProductId}. New total: {Count}", incomingCartItem.ProductId, cartFromDb.Quantity);
+                }
+
+                _unitOfWork.Save();
+                return Ok(new { success = true, message = "Shopping cart state updated successfully." });
+            }
+            catch (Exception ex)
+            {
+                _logger.LogError(ex, "Failed to execute database cart state mutations for user context initialization loops.");
+                return StatusCode(500, "Database state update mutation failure.");
+            }
         }
 
         // GET: api/cart
@@ -45,8 +87,11 @@ namespace Decibels.API.Areas.Customer.Controllers
 
                 foreach (var cart in shoppingCartVM.ShoppingCartList)
                 {
-                    cart.Price = cart.Product.Price;
-                    shoppingCartVM.OrderHeader.OrderTotal += (cart.Price * cart.Quantity);
+                    if (cart.Product != null)
+                    {
+                        cart.Price = cart.Product.Price;
+                        shoppingCartVM.OrderHeader.OrderTotal += (cart.Price * cart.Quantity);
+                    }
                 }
 
                 return Ok(shoppingCartVM);
@@ -74,17 +119,23 @@ namespace Decibels.API.Areas.Customer.Controllers
                 };
 
                 shoppingCartVM.OrderHeader.ApplicationUser = _unitOfWork.ApplicationUser.Get(u => u.Id == userId);
-                shoppingCartVM.OrderHeader.Name = shoppingCartVM.OrderHeader.ApplicationUser.Name;
-                shoppingCartVM.OrderHeader.PhoneNumber = shoppingCartVM.OrderHeader.ApplicationUser.PhoneNumber;
-                shoppingCartVM.OrderHeader.Street = shoppingCartVM.OrderHeader.ApplicationUser.Street;
-                shoppingCartVM.OrderHeader.City = shoppingCartVM.OrderHeader.ApplicationUser.City;
-                shoppingCartVM.OrderHeader.State = shoppingCartVM.OrderHeader.ApplicationUser.State;
-                shoppingCartVM.OrderHeader.PostalCode = shoppingCartVM.OrderHeader.ApplicationUser.PostalCode;
+                if (shoppingCartVM.OrderHeader.ApplicationUser != null)
+                {
+                    shoppingCartVM.OrderHeader.Name = shoppingCartVM.OrderHeader.ApplicationUser.Name;
+                    shoppingCartVM.OrderHeader.PhoneNumber = shoppingCartVM.OrderHeader.ApplicationUser.PhoneNumber;
+                    shoppingCartVM.OrderHeader.Street = shoppingCartVM.OrderHeader.ApplicationUser.Street;
+                    shoppingCartVM.OrderHeader.City = shoppingCartVM.OrderHeader.ApplicationUser.City;
+                    shoppingCartVM.OrderHeader.State = shoppingCartVM.OrderHeader.ApplicationUser.State;
+                    shoppingCartVM.OrderHeader.PostalCode = shoppingCartVM.OrderHeader.ApplicationUser.PostalCode;
+                }
 
                 foreach (var cart in shoppingCartVM.ShoppingCartList)
                 {
-                    cart.Price = cart.Product.Price;
-                    shoppingCartVM.OrderHeader.OrderTotal += (cart.Price * cart.Quantity);
+                    if (cart.Product != null)
+                    {
+                        cart.Price = cart.Product.Price;
+                        shoppingCartVM.OrderHeader.OrderTotal += (cart.Price * cart.Quantity);
+                    }
                 }
 
                 return Ok(shoppingCartVM);
@@ -105,7 +156,7 @@ namespace Decibels.API.Areas.Customer.Controllers
                 string userId = GetUserIdFromClaims();
 
                 var shoppingCartList = _unitOfWork.ShoppingCart.GetAll(
-                        u => u.ApplicationUserId == userId, includeProperties: "Product");
+                        u => u.ApplicationUserId == userId, includeProperties: "Product").ToList();
 
                 if (!shoppingCartList.Any())
                 {
@@ -114,12 +165,15 @@ namespace Decibels.API.Areas.Customer.Controllers
 
                 postOrderHeader.OrderDate = DateTime.Now;
                 postOrderHeader.ApplicationUserId = userId;
-                postOrderHeader.OrderTotal = 0; // Explicitly recalculate on the server side to guarantee price safety
+                postOrderHeader.OrderTotal = 0; 
 
                 foreach (var cart in shoppingCartList)
                 {
-                    cart.Price = cart.Product.Price;
-                    postOrderHeader.OrderTotal += (cart.Price * cart.Quantity);
+                    if (cart.Product != null)
+                    {
+                        cart.Price = cart.Product.Price;
+                        postOrderHeader.OrderTotal += (cart.Price * cart.Quantity);
+                    }
                 }
 
                 ApplicationUser applicationUser = _unitOfWork.ApplicationUser.Get(u => u.Id == userId);
@@ -153,14 +207,12 @@ namespace Decibels.API.Areas.Customer.Controllers
 
                 if (applicationUser.CompanyId.GetValueOrDefault() == 0)
                 {
-                    // Stripe pipeline orchestration
-                    // Extract the domain dynamically based on environment execution context
                     var domain = _configuration["FrontendUrl"] 
                                  ?? throw new InvalidOperationException("Frontend URL configuration contract missing.");
 
                     var options = new SessionCreateOptions
                     {
-                        SuccessUrl = domain + $"order-confirmation/{postOrderHeader.Id}",  // Re-target to direct traffic back to the React client engine base
+                        SuccessUrl = domain + $"order-confirmation/{postOrderHeader.Id}",  
                         CancelUrl = domain + "cart",
                         LineItems = new List<SessionLineItemOptions>(),
                         Mode = "payment",
@@ -168,19 +220,22 @@ namespace Decibels.API.Areas.Customer.Controllers
 
                     foreach (var item in shoppingCartList)
                     {
-                        options.LineItems.Add(new SessionLineItemOptions
+                        if (item.Product != null)
                         {
-                            PriceData = new SessionLineItemPriceDataOptions
+                            options.LineItems.Add(new SessionLineItemOptions
                             {
-                                UnitAmount = (long)(item.Price * 100),
-                                Currency = "usd",
-                                ProductData = new SessionLineItemPriceDataProductDataOptions
+                                PriceData = new SessionLineItemPriceDataOptions
                                 {
-                                    Name = item.Product.Name
-                                }
-                            },
-                            Quantity = item.Quantity
-                        });
+                                    UnitAmount = (long)(item.Price * 100),
+                                    Currency = "usd",
+                                    ProductData = new SessionLineItemPriceDataProductDataOptions
+                                    {
+                                        Name = item.Product.Name
+                                    }
+                                },
+                                Quantity = item.Quantity
+                            });
+                        }
                     }
 
                     var service = new SessionService();
@@ -188,7 +243,6 @@ namespace Decibels.API.Areas.Customer.Controllers
                     _unitOfWork.OrderHeader.UpdateStripePaymentId(postOrderHeader.Id, session.Id, session.PaymentIntentId);
                     _unitOfWork.Save();
 
-                    // Hand down the Stripe engine URL to let the React client coordinate window transition states smoothly
                     return Ok(new { requiresPayment = true, checkoutUrl = session.Url, orderId = postOrderHeader.Id });
                 }
 
@@ -235,8 +289,7 @@ namespace Decibels.API.Areas.Customer.Controllers
 
                 return Ok(new { success = true, status = orderHeader.OrderStatus });
             }
-            catch (Exception ex)
-            {
+            catch (Exception ex) {
                 _logger.LogError(ex, $"Error verifying stripe confirmation tracking indexes for order boundary target {id}");
                 return StatusCode(500, "Payment contract confirmation tracking evaluation failure.");
             }
@@ -289,8 +342,11 @@ namespace Decibels.API.Areas.Customer.Controllers
 
         private string GetUserIdFromClaims()
         {
+            // Leverages security principal extraction straight from injected JWT Claims principal identities
             var claimsIdentity = User.Identity as ClaimsIdentity;
-            return claimsIdentity?.FindFirst(ClaimTypes.NameIdentifier)?.Value 
+            var userIdClaim = claimsIdentity?.FindFirst(ClaimTypes.NameIdentifier);
+            
+            return userIdClaim?.Value 
                 ?? throw new InvalidOperationException("User context index not verified inside active authorization tokens.");
         }
     }
