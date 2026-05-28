@@ -55,15 +55,15 @@ export function CustomerOrdersView() {
         </Badge>
       </Table.Td>
       <Table.Td style={{ textAlign: 'right' }}>
-        <Button 
-          component={Link} 
-          to={`/order-confirmation/${order.id}`} 
-          variant="subtle" 
-          size="xs"
-          leftSection={<IconEye size={14} />}
-        >
-          View Specs
-        </Button>
+       <Button 
+  component={Link} 
+  to={`/orders/${order.id}`} 
+  variant="subtle" 
+  size="xs"
+  leftSection={<IconEye size={14} />}
+>
+  View Specs
+</Button>
       </Table.Td>
     </Table.Tr>
   ));
