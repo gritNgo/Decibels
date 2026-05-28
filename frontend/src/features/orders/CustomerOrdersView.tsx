@@ -1,10 +1,11 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { orderApi } from '../../api/order'; 
-import type { OrderHeader } from '../../types'; // Import your exact types
-import { Container, Table, Title, Text, Badge, Paper, Center, Loader, Stack } from '@mantine/core';
+import type { OrderHeader } from '../../types'; 
+import { Container, Table, Title, Text, Badge, Paper, Center, Loader, Stack, Button } from '@mantine/core';
+import { IconEye } from '@tabler/icons-react';
 
 export function CustomerOrdersView() {
-  // Use your explicit OrderHeader model definition to enforce ironclad TypeScript typing
   const [orders, setOrders] = useState<OrderHeader[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -12,11 +13,8 @@ export function CustomerOrdersView() {
     let isMounted = true;
     const fetchCustomerOrders = async () => {
       try {
-        // Satisfy the 1-argument requirement by passing an empty string or "All" 
-        // to retrieve all orders matching this user's token identity context
+        // Satisfy parameter constraints by requesting all user-scoped transactional rows
         const response = await orderApi.getOrders(""); 
-        
-        // Explicit type-safe checking ensuring an array fallback layout
         const dataArray = Array.isArray(response) ? response : [];
         
         if (isMounted) {
@@ -47,14 +45,25 @@ export function CustomerOrdersView() {
       <Table.Td>{order.name}</Table.Td>
       <Table.Td fw={600}>€{order.orderTotal.toFixed(2)}</Table.Td>
       <Table.Td>
-        <Badge color={order.orderStatus === 'Approved' ? 'green' : 'blue'} variant="light">
+        <Badge color={order.orderStatus?.toLowerCase() === 'approved' ? 'green' : 'blue'} variant="light">
           {order.orderStatus || 'Pending'}
         </Badge>
       </Table.Td>
       <Table.Td>
-        <Badge color={order.paymentStatus === 'Approved' ? 'green' : 'yellow'} variant="dot">
+        <Badge color={order.paymentStatus?.toLowerCase() === 'approved' ? 'green' : 'yellow'} variant="dot">
           {order.paymentStatus || 'Pending'}
         </Badge>
+      </Table.Td>
+      <Table.Td style={{ textAlign: 'right' }}>
+        <Button 
+          component={Link} 
+          to={`/order-confirmation/${order.id}`} 
+          variant="subtle" 
+          size="xs"
+          leftSection={<IconEye size={14} />}
+        >
+          View Specs
+        </Button>
       </Table.Td>
     </Table.Tr>
   ));
@@ -80,6 +89,7 @@ export function CustomerOrdersView() {
                 <Table.Th c="dimmed">TOTAL</Table.Th>
                 <Table.Th c="dimmed">ORDER STATUS</Table.Th>
                 <Table.Th c="dimmed">PAYMENT STATUS</Table.Th>
+                <Table.Th style={{ textAlign: 'right' }} c="dimmed">ACTIONS</Table.Th>
               </Table.Tr>
             </Table.Thead>
             <Table.Tbody>{rows}</Table.Tbody>
