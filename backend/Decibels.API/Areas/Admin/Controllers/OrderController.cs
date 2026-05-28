@@ -32,13 +32,13 @@ namespace Decibels.API.Areas.Admin.Controllers
 
         // GET: api/order
         [HttpGet]
-        public ActionResult<IEnumerable<OrderHeader>> GetAll([FromQuery] string status)
+        public ActionResult<IEnumerable<OrderHeader>> GetAll([FromQuery] string? status)
         {
             try
             {
-                IEnumerable<OrderHeader> objOrderHeaders;
-
-                // Check roles dynamically from token claims
+                List<OrderHeader> objOrderHeaders;
+        
+                // Enforce strict role isolation layers up front
                 if (User.IsInRole(StaticDetails.Role_Admin) || User.IsInRole(StaticDetails.Role_Employee))
                 {
                     objOrderHeaders = _unitOfWork.OrderHeader.GetAll(includeProperties: "ApplicationUser").ToList();
@@ -49,32 +49,43 @@ namespace Decibels.API.Areas.Admin.Controllers
                     var userId = claimsIdentity?.FindFirst(ClaimTypes.NameIdentifier)?.Value;
                     
                     if (string.IsNullOrEmpty(userId)) return Unauthorized();
-
-                    objOrderHeaders = _unitOfWork.OrderHeader.GetAll(u => u.ApplicationUserId == userId, includeProperties: "ApplicationUser");
+        
+                    // Explicitly evaluate to a concrete list right away to put database state into memory
+                    objOrderHeaders = _unitOfWork.OrderHeader.GetAll(
+                        u => u.ApplicationUserId == userId, 
+                        includeProperties: "ApplicationUser"
+                    ).ToList();
                 }
-
-                switch (status?.ToLower())
+        
+                // Execute strict lowercase structural filtering evaluations safely
+                if (!string.IsNullOrEmpty(status))
                 {
-                    case "pending":
-                        objOrderHeaders = objOrderHeaders.Where(u => u.PaymentStatus == StaticDetails.PaymentStatusDelayedPayment);
-                        break;
-                    case "inprocess":
-                        objOrderHeaders = objOrderHeaders.Where(u => u.OrderStatus == StaticDetails.StatusInProcess);
-                        break;
-                    case "completed":
-                        objOrderHeaders = objOrderHeaders.Where(u => u.OrderStatus == StaticDetails.StatusShipped);
-                        break;
-                    case "approved":
-                        objOrderHeaders = objOrderHeaders.Where(u => u.OrderStatus == StaticDetails.StatusApproved);
-                        break;
+                    switch (status.ToLower().Trim())
+                    {
+                        case "pending":
+                            objOrderHeaders = objOrderHeaders.Where(u => u.PaymentStatus == StaticDetails.PaymentStatusDelayedPayment).ToList();
+                            break;
+                        case "inprocess":
+                            objOrderHeaders = objOrderHeaders.Where(u => u.OrderStatus == StaticDetails.StatusInProcess).ToList();
+                            break;
+                        case "completed":
+                            objOrderHeaders = objOrderHeaders.Where(u => u.OrderStatus == StaticDetails.StatusShipped).ToList();
+                            break;
+                        case "approved":
+                            objOrderHeaders = objOrderHeaders.Where(u => u.OrderStatus == StaticDetails.StatusApproved).ToList();
+                            break;
+                        default:
+                            // Fall through safely for "all" or unhandled string queries
+                            break;
+                    }
                 }
-
+        
                 return Ok(objOrderHeaders);
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "Failed to pull filterable order collections.");
-                return StatusCode(500, "Internal data pipeline error.");
+                _logger.LogError(ex, "Failed to pull filterable order collections for corporate ledger indices.");
+                return StatusCode(500, "Internal data pipeline execution error.");
             }
         }
 
