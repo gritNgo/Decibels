@@ -63,10 +63,14 @@ export function LoginView() {
     await executeAuthenticationFlow(email, password);
   };
 
-  // High-velocity bypass mechanism to fast-track recruiter technical reviews
+// bypass mechanism to fast-track recruiter reviews
   const handleSandboxDemoBypass = async (role: 'Customer' | 'Admin') => {
-    const demoEmail = role === 'Admin' ? 'admin@decibels.com' : 'buyer@decibels.com';
-    const demoPassword = 'Password123!'; // Ensure this perfectly targets your EF Core seeding layer values
+    const demoEmail = role === 'Admin' 
+      ? import.meta.env.VITE_DEMO_ADMIN_EMAIL 
+      : import.meta.env.VITE_DEMO_BUYER_EMAIL;
+      
+    const demoPassword = import.meta.env.VITE_DEMO_PASSWORD; 
+
     await executeAuthenticationFlow(demoEmail, demoPassword);
   };
 
