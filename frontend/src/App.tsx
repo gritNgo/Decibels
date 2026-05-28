@@ -9,6 +9,7 @@ import { CartView } from './features/cart/CartView';
 import { SummaryView } from './features/cart/SummaryView';
 import { OrderConfirmationView } from './features/cart/OrderConfirmationView';
 import { OrderManagementIndex } from './features/admin/OrderManagementIndex';
+import { OrderManagementDetails } from './features/admin/OrderManagementDetails';
 import '@mantine/core/styles.css';
 
 const OrdersView = () => <div><h2>Order Management</h2><p>Admin transactional processing interface.</p></div>;
@@ -28,6 +29,7 @@ function App() {
               <Route path="orders" element={<OrdersView />} />
               <Route path="/order-confirmation/:id" element={<OrderConfirmationView />} />
               <Route path="/admin/orders" element={<OrderManagementIndex />} />
+              <Route path="/admin/orders/:id" element={<OrderManagementDetails />} />
               <Route path="login" element={<LoginView />} />
               <Route path="*" element={<div><h2>404 - Resource Not Found</h2></div>} />
             </Route>

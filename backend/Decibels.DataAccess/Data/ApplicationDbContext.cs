@@ -62,7 +62,7 @@ namespace Decibels.DataAccess.Data
                 new Product
                 {
                     Id = 3,
-                    Name = "Sennheiser E 935 dynamic vocal microphone",
+                    Name = "Sennheiser E 835 dynamic vocal microphone",
                     Description = "When you say Sennheiser, you actually mean the E 835! What the SM58 is to Shure, the E 835 is to Sennheiser, and it remains a battle of the titans for the best place in the stage branch!",
                     Price = 158,
                     CategoryId = 1,
