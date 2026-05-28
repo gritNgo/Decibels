@@ -8,6 +8,7 @@ import {LoginView} from './features/auth/LoginView'
 import { CartView } from './features/cart/CartView';
 import { SummaryView } from './features/cart/SummaryView';
 import { OrderConfirmationView } from './features/cart/OrderConfirmationView';
+import { OrderManagementIndex } from './features/admin/OrderManagementIndex';
 import '@mantine/core/styles.css';
 
 const OrdersView = () => <div><h2>Order Management</h2><p>Admin transactional processing interface.</p></div>;
@@ -20,12 +21,13 @@ function App() {
           <Routes>
             <Route path="/" element={<Layout />}>
               <Route index element={<ProductCatalog />} />
-              <Route path="product/:id" element={<ProductDetails />} /> {/* REGISTER THE DYNAMIC EXTENSION URL PARAMETER ROUTE */}
+              <Route path="product/:id" element={<ProductDetails />} /> 
 
               <Route path="cart" element={<CartView />} />
               <Route path="/summary" element={<SummaryView />} />
               <Route path="orders" element={<OrdersView />} />
               <Route path="/order-confirmation/:id" element={<OrderConfirmationView />} />
+              <Route path="/admin/orders" element={<OrderManagementIndex />} />
               <Route path="login" element={<LoginView />} />
               <Route path="*" element={<div><h2>404 - Resource Not Found</h2></div>} />
             </Route>
