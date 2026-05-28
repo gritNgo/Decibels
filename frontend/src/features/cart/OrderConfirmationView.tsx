@@ -1,86 +1,142 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { orderApi } from '../../api/order';
-import { Container, Paper, Title, Text, Button, Loader, Center, Stack } from '@mantine/core';
-import { IconCheck, IconAlertTriangle, IconReceipt } from '@tabler/icons-react';
+import { orderApi } from '../../api/order'; // Cleanly leveraging your single orderApi service file
+import { Container, Paper, Title, Text, Button, Loader, Center, Stack, ThemeIcon, Group, Image } from '@mantine/core';
+import { IconAlertTriangle, IconRefresh } from '@tabler/icons-react';
+
 
 export function OrderConfirmationView() {
   const { id } = useParams<{ id: string }>();
-  const [verifying, setVerifying] = useState(true);
-  const [success, setSuccess] = useState(false);
+  const [status, setStatus] = useState<'loading' | 'success' | 'uncertain'>('loading');
+  const [isRetrying, setIsRetrying] = useState(false);
+  
+  const pollingTracker = useRef<number | null>(null);
+  const attempts = useRef(0);
 
-  useEffect(() => {
-    const verify = async () => {
-      if (!id) return;
-      try {
-        // Fires verification payload straight to api/cart/verify/{id}
-        // This cleans out the shopping cart lines inside EF Core automatically
-        await orderApi.verifyPayment(Number(id));
-        setSuccess(true);
-      } catch (err) {
-        console.error("Payment confirmation tracing failure:", err);
-        setSuccess(false);
-      } finally {
-        setVerifying(false);
+  const checkPaymentStatus = useCallback(async (manualRetry = false) => {
+    if (!id) return;
+    if (manualRetry) setIsRetrying(true);
+    
+    try {
+      attempts.current += 1;
+      
+      // Trigger the verification call through orderApi method
+      await orderApi.verifyPayment(Number(id)); 
+      
+      // Resolve the details graph model payload object safely
+      const response = await orderApi.getOrderDetails(Number(id)); 
+      
+      // Access via the clean nested orderHeader property layout matching the C# OrderVM structure
+      const currentOrderStatus = (response?.orderHeader?.orderStatus || '').toString().toLowerCase();
+      const currentPaymentStatus = (response?.orderHeader?.paymentStatus || '').toString().toLowerCase();
+
+      if (currentOrderStatus === 'approved' || currentPaymentStatus === 'approved') {
+        setStatus('success');
+        if (pollingTracker.current) window.clearInterval(pollingTracker.current);
+      } else if (attempts.current >= 4 && !manualRetry) {
+        setStatus('uncertain');
+        if (pollingTracker.current) window.clearInterval(pollingTracker.current);
       }
-    };
-    verify();
+    } catch (err) {
+      console.error('Handshake verification telemetry trace error:', err);
+      if (attempts.current >= 4 && !manualRetry) {
+        setStatus('uncertain');
+        if (pollingTracker.current) window.clearInterval(pollingTracker.current);
+      }
+    } finally {
+      if (manualRetry) setIsRetrying(false);
+    }
   }, [id]);
 
+  useEffect(() => {
+    const handleInitialVerification = window.setTimeout(() => {
+      checkPaymentStatus(false);
+    }, 0);
+
+    pollingTracker.current = window.setInterval(() => {
+      checkPaymentStatus(false);
+    }, 3000); 
+
+    return () => {
+      window.clearTimeout(handleInitialVerification);
+      if (pollingTracker.current) window.clearInterval(pollingTracker.current);
+    };
+  }, [checkPaymentStatus]);
+
+  if (status === 'loading') {
+    return (
+      <Center style={{ height: '50vh' }}>
+        <Stack align="center" gap="md">
+          <Loader size="lg" color="blue" type="dots" />
+          <Text size="sm" c="dimmed">Executing real-time Stripe sandbox synchronization handshakes...</Text>
+        </Stack>
+      </Center>
+    );
+  }
+
   return (
-    <Container size="sm" py="xl" my="xl">
-      <Paper p="xl" radius="md" bg="dark.7" withBorder style={{ borderColor: 'var(--mantine-color-dark-4)' }}>
-        <Center>
-          {verifying ? (
-            <Stack align="center" py="xl">
-              <Loader size="lg" type="dots" color="blue.4" />
-              <Text c="dimmed">Finalizing transaction telemetry logs...</Text>
-            </Stack>
-          ) : success ? (
-            <Stack align="center" gap="md" style={{ textAlign: 'center' }}>
-              <ThemeIconCircle color="green">
-                <IconCheck size={32} color="var(--mantine-color-green-4)" />
-              </ThemeIconCircle>
-              <Title order={2} c="white">Payment Successful!</Title>
-              <Text c="dimmed" size="sm">
-                Order Tracking Identity Index: <Text span fw={700} c="blue.4">#{id}</Text>
+    <Container size="xs" my={40}>
+      <Paper radius="md" p="xl" withBorder bg="dark.7" style={{ borderColor: 'var(--mantine-color-dark-4)' }}>
+        <Stack align="center" gap="md">
+          {status === 'success' ? (
+  <>
+    
+    <Image 
+  src="/images/rock.jpg" 
+  alt="Order Success Asset" 
+  mah={200}
+  maw={200}
+  fit="contain"
+  my="sm"
+  style={{ 
+    borderRadius: '16px', // Forces the actual visible image boundaries to round
+    overflow: 'hidden',
+    border: '1px solid var(--mantine-color-dark-4)' // anchors it into the dark UI theme
+  }}
+/>
+    <Title order={2} fw={700} c="white" style={{ textTransform: 'uppercase', letterSpacing: '-0.5px' }}>
+      Payment Confirmed
+    </Title>
+    
+    
+
+    <Text size="sm" c="dimmed" style={{ textAlign: 'center' }}>
+      Your transaction for Order #{id} settled successfully. // *PALCEHOLDER FOR LINK TO ORDERS*
+    </Text>
+    <Button component={Link} to="/" color="blue" mt="md" fullWidth>
+      CONTINUE SHOPPING
+    </Button>
+  </>
+) : (
+            <>
+              <ThemeIcon color="yellow" size={60} radius={60} variant="light">
+                <IconAlertTriangle size={34} />
+              </ThemeIcon>
+              <Title order={2} fw={700} c="white" style={{ textTransform: 'uppercase', letterSpacing: '-0.5px' }}>
+                Telemetry Syncing
+              </Title>
+              <Text size="sm" c="dimmed" style={{ textAlign: 'center' }}>
+                Your order context is securely logged. If the payment state doesn't show instantly, click below to re-ping the verification gateway.
               </Text>
-              <Text c="gray.3" maw={400} mx="auto" size="sm">
-                Your payment was processed successfully. The inventory allocation blocks have been safely locked down.
-              </Text>
-              <Button component={Link} to="/orders" leftSection={<IconReceipt size={16} />} mt="md" color="blue">
-                View My Orders
-              </Button>
-            </Stack>
-          ) : (
-            <Stack align="center" gap="md" style={{ textAlign: 'center' }}>
-              <ThemeIconCircle color="amber">
-                <IconAlertTriangle size={32} color="var(--mantine-color-yellow-4)" />
-              </ThemeIconCircle>
-              <Title order={2} c="white">Telemetry Status Uncertain</Title>
-              <Text c="gray.4" size="sm">
-                We couldn't instantly verify the Stripe session webhook parameters. Don't worry—your order has been logged.
-              </Text>
-              <Button component={Link} to="/" mt="md" variant="light">
-                Return to Catalog
-              </Button>
-            </Stack>
+              
+              <Group grow style={{ width: '100%' }} mt="md" gap="xs">
+                <Button 
+                  variant="light"
+                  color="yellow"
+                  leftSection={<IconRefresh size={14} />}
+                  loading={isRetrying}
+                  onClick={() => checkPaymentStatus(true)}
+                >
+                  RE-VERIFY STATUS
+                </Button>
+                <Button component={Link} to="/" color="dark">
+                  RETURN HOME
+                </Button>
+              </Group>
+            </>
           )}
-        </Center>
+        </Stack>
       </Paper>
     </Container>
-  );
-}
-
-// Quick inner presentation block wrapper for consistent look
-function ThemeIconCircle({ children, color }: { children: React.ReactNode; color: 'green' | 'amber' }) {
-  const bg = color === 'green' ? 'rgba(43, 138, 62, 0.1)' : 'rgba(230, 73, 73, 0.1)';
-  return (
-    <div style={{
-      width: 64, height: 64, borderRadius: '50%', background: bg,
-      display: 'flex', alignItems: 'center', justifyContent: 'center'
-    }}>
-      {children}
-    </div>
   );
 }

@@ -10,9 +10,8 @@ import { SummaryView } from './features/cart/SummaryView';
 import { OrderConfirmationView } from './features/cart/OrderConfirmationView';
 import { OrderManagementIndex } from './features/admin/OrderManagementIndex';
 import { OrderManagementDetails } from './features/admin/OrderManagementDetails';
+import { CustomerOrdersView } from './features/orders/CustomerOrdersView';
 import '@mantine/core/styles.css';
-
-const OrdersView = () => <div><h2>Order Management</h2><p>Admin transactional processing interface.</p></div>;
 
 function App() {
   return (
@@ -26,7 +25,7 @@ function App() {
 
               <Route path="cart" element={<CartView />} />
               <Route path="/summary" element={<SummaryView />} />
-              <Route path="orders" element={<OrdersView />} />
+              <Route path="/orders" element={<CustomerOrdersView />} />
               <Route path="/order-confirmation/:id" element={<OrderConfirmationView />} />
               <Route path="/admin/orders" element={<OrderManagementIndex />} />
               <Route path="/admin/orders/:id" element={<OrderManagementDetails />} />

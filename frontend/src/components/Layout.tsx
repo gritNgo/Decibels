@@ -37,36 +37,42 @@ const cartCount = 0; // placehoplder until mount of operational state machine bu
           </Anchor>
 
             {/* NAV NAVIGATION LINKS */}
-            <Group gap="md">
-              <Anchor component={Link} to="/" c="dimmed" size="sm">Home</Anchor>
-              
-              {/* ADMIN ROLE GUARDED DROPDOWN (Equivalent to @if (User.IsInRole(StaticDetails.Role_Admin))) */}
-              {isAdmin && (
-                <>
-                  <Anchor component={Link} to="/orders" c="dimmed" size="sm">Order Management</Anchor>
-                  
-                  <Menu shadow="md" width={200} trigger="hover" openDelay={100} closeDelay={400}>
-                    <Menu.Target>
-                      <Anchor href="#" c="dimmed" size="sm">Content Management ▼</Anchor>
-                    </Menu.Target>
+            {/* NAV NAVIGATION LINKS */}
+<Group gap="md">
+  <Anchor component={Link} to="/" c="dimmed" size="sm">Home</Anchor>
+  
+  {/* Unified Navigation: If Admin, route to full dashboard. If Customer, route to their filtered list */}
+  {isAuthenticated && (
+    <Anchor 
+      component={Link} 
+      to={isAdmin ? "/admin/orders" : "/orders"} 
+      c="dimmed" 
+      size="sm"
+    >
+      {isAdmin ? "Order Management" : "My Orders"}
+    </Anchor>
+  )}
+  
+  {isAdmin && (
+    <Menu shadow="md" width={200} trigger="hover" openDelay={100} closeDelay={400}>
+      <Menu.Target>
+        <Anchor href="#" c="dimmed" size="sm">Content Management ▼</Anchor>
+      </Menu.Target>
+      <Menu.Dropdown>
+        <Menu.Item component={Link} to="/admin/categories">Category</Menu.Item>
+        <Menu.Item component={Link} to="/admin/products">Product</Menu.Item>
+        <Menu.Item component={Link} to="/admin/companies">Company</Menu.Item>
+        <Menu.Divider />
+        <Menu.Item component={Link} to="/register">Create User</Menu.Item>
+        <Menu.Item component={Link} to="/admin/users">Manage Users</Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
+  )}
 
-                    <Menu.Dropdown>
-                      <Menu.Item component={Link} to="/admin/categories">Category</Menu.Item>
-                      <Menu.Item component={Link} to="/admin/products">Product</Menu.Item>
-                      <Menu.Item component={Link} to="/admin/companies">Company</Menu.Item>
-                      <Menu.Divider />
-                      <Menu.Item component={Link} to="/register">Create User</Menu.Item>
-                      <Menu.Item component={Link} to="/admin/users">Manage Users</Menu.Item>
-                    </Menu.Dropdown>
-                  </Menu>
-                </>
-              )}
-
-              {/* SHOPPING CART (Equivalent to @await Component.InvokeAsync("ShoppingCart")) */}
-              <Anchor component={Link} to="/cart" c="dimmed" size="sm">
-                Cart ({cartCount})
-              </Anchor>
-            </Group>
+  <Anchor component={Link} to="/cart" c="dimmed" size="sm">
+    Cart ({cartCount})
+  </Anchor>
+</Group>
 
             {/* LOGIN / IDENTITY ACTIONS (Equivalent to <partial name="_LoginPartial" />) */}
 <Group gap="sm">
