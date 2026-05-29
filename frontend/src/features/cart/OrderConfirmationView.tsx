@@ -1,12 +1,14 @@
 import { useEffect, useState, useRef, useCallback } from 'react';
 import { useParams, Link } from 'react-router-dom';
-import { orderApi } from '../../api/order'; // Cleanly leveraging your single orderApi service file
-import { Container, Paper, Title, Text, Button, Loader, Center, Stack, ThemeIcon, Group, Image } from '@mantine/core';
+import { orderApi } from '../../api/order'; 
+// Extract context hook to clear stale cart badge
+import { useCart } from '../../context/CartContext'; 
+import { Container, Paper, Title, Text, Button, Loader, Center, Stack, ThemeIcon, Group, Image, Anchor } from '@mantine/core';
 import { IconAlertTriangle, IconRefresh } from '@tabler/icons-react';
-
 
 export function OrderConfirmationView() {
   const { id } = useParams<{ id: string }>();
+  const { refreshCartCount } = useCart(); // Pull state synchronization pipeline
   const [status, setStatus] = useState<'loading' | 'success' | 'uncertain'>('loading');
   const [isRetrying, setIsRetrying] = useState(false);
   
@@ -22,7 +24,6 @@ export function OrderConfirmationView() {
       
       // Trigger the verification call through orderApi method
       await orderApi.verifyPayment(Number(id)); 
-      
       // Resolve the details graph model payload object safely
       const response = await orderApi.getOrderDetails(Number(id)); 
       
@@ -32,6 +33,10 @@ export function OrderConfirmationView() {
 
       if (currentOrderStatus === 'approved' || currentPaymentStatus === 'approved') {
         setStatus('success');
+        
+        // Trigger immediate background sync to clear navbar counter now that DB is wiped
+        await refreshCartCount();
+        
         if (pollingTracker.current) window.clearInterval(pollingTracker.current);
       } else if (attempts.current >= 4 && !manualRetry) {
         setStatus('uncertain');
@@ -46,7 +51,7 @@ export function OrderConfirmationView() {
     } finally {
       if (manualRetry) setIsRetrying(false);
     }
-  }, [id]);
+  }, [id, refreshCartCount]);
 
   useEffect(() => {
     const handleInitialVerification = window.setTimeout(() => {
@@ -79,35 +84,40 @@ export function OrderConfirmationView() {
       <Paper radius="md" p="xl" withBorder bg="dark.7" style={{ borderColor: 'var(--mantine-color-dark-4)' }}>
         <Stack align="center" gap="md">
           {status === 'success' ? (
-  <>
-    
-    <Image 
-  src="/images/rock.jpg" 
-  alt="Order Success Asset" 
-  mah={200}
-  maw={200}
-  fit="contain"
-  my="sm"
-  style={{ 
-    borderRadius: '16px', // Forces the actual visible image boundaries to round
-    overflow: 'hidden',
-    border: '1px solid var(--mantine-color-dark-4)' // anchors it into the dark UI theme
-  }}
-/>
-    <Title order={2} fw={700} c="white" style={{ textTransform: 'uppercase', letterSpacing: '-0.5px' }}>
-      Payment Confirmed
-    </Title>
-    
-    
+            <>
+              <Image 
+                src="/images/rock.jpg" 
+                alt="Order Success Asset" 
+                mah={200}
+                maw={200}
+                fit="contain"
+                my="sm"
+                style={{ 
+                  borderRadius: '16px', // Forces the actual visible image boundaries to round
+                  overflow: 'hidden',
+                  border: '1px solid var(--mantine-color-dark-4)'  // anchors it into the dark UI theme
+                }}
+              />
+              <Title order={2} fw={700} c="white" style={{ textTransform: 'uppercase', letterSpacing: '-0.5px' }}>
+                Payment Confirmed
+              </Title>
+              
+              <Text size="sm" c="dimmed" style={{ textAlign: 'center', lineHeight: 1.6 }}>
+                Your transaction for{' '}
+                <Anchor component={Link} to={`/orders/${id}`} fw={700} color="blue.4">
+                  Order #{id}
+                </Anchor>{' '}
+                settled successfully. Review it or track the status timeline within{' '}
+                <Anchor component={Link} to="/orders" fw={500} color="blue.4">
+                  My Orders
+                </Anchor>.
+              </Text>
 
-    <Text size="sm" c="dimmed" style={{ textAlign: 'center' }}>
-      Your transaction for Order #{id} settled successfully. // *PALCEHOLDER FOR LINK TO ORDERS*
-    </Text>
-    <Button component={Link} to="/" color="blue" mt="md" fullWidth>
-      CONTINUE SHOPPING
-    </Button>
-  </>
-) : (
+              <Button component={Link} to="/" color="blue" mt="md" fullWidth style={{ letterSpacing: '0.5px' }}>
+                CONTINUE SHOPPING
+              </Button>
+            </>
+          ) : (
             <>
               <ThemeIcon color="yellow" size={60} radius={60} variant="light">
                 <IconAlertTriangle size={34} />
@@ -116,7 +126,7 @@ export function OrderConfirmationView() {
                 Telemetry Syncing
               </Title>
               <Text size="sm" c="dimmed" style={{ textAlign: 'center' }}>
-                Your order context is securely logged. If the payment state doesn't show instantly, click below to re-ping the verification gateway.
+                Your order is securely logged. If the payment state doesn't show instantly, click below to re-ping the verification gateway.
               </Text>
               
               <Group grow style={{ width: '100%' }} mt="md" gap="xs">

@@ -62,7 +62,7 @@ export function CustomerOrdersView() {
   size="xs"
   leftSection={<IconEye size={14} />}
 >
-  View Specs
+  Details
 </Button>
       </Table.Td>
     </Table.Tr>
