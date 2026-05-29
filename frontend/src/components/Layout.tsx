@@ -1,6 +1,6 @@
-import { AppShell, Group, Anchor, Menu, Button, Container } from '@mantine/core';
+import { AppShell, Group, Anchor, Button, Container } from '@mantine/core';
 import { Link, Outlet } from 'react-router-dom';
-// Global reactive state hooks
+// Global eactive state hooks
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext'; 
 
@@ -55,16 +55,15 @@ export function Layout() {
               
               {/* Streamlined, Scope-Compliant Admin Dropdown */}
               {isAdmin && (
-                <Menu shadow="md" width={200} trigger="hover" openDelay={100} closeDelay={400}>
-                  <Menu.Target>
-                    <Anchor href="#" c="dimmed" size="sm">Content Management ▼</Anchor>
-                  </Menu.Target>
-                  <Menu.Dropdown>
-                    <Menu.Item component={Link} to="/admin/categories">Category</Menu.Item>
-                    <Menu.Item component={Link} to="/admin/products">Product</Menu.Item>
-                  </Menu.Dropdown>
-                </Menu>
-              )}
+              <Anchor 
+                component={Link} 
+                to="/admin/products" 
+                c="dimmed" 
+                size="sm"
+              >
+                Product Management
+              </Anchor>
+            )}
 
               {/* Hide shopping cart entirely for administrative user sessions */}
               {!isAdmin && (

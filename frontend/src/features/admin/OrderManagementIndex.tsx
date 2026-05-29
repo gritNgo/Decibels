@@ -91,9 +91,8 @@ useEffect(() => {
       <Group justify="space-between" mb="xl">
         <Stack gap={4}>
           <Title order={2} c="white" fw={700} style={{ letterSpacing: '-0.5px' }}>
-            ORDER MANAGEMENT REGISTRY
+            ORDER MANAGEMENT
           </Title>
-          <Text size="sm" c="dimmed">Administrative control interface for fulfillment workflows</Text>
         </Stack>
         <ActionIcon variant="subtle" size="lg" color="gray" onClick={fetchOrders} disabled={loading}>
           <IconRefresh size={18} />

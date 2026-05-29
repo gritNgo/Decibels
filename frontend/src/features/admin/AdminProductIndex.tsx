@@ -13,7 +13,8 @@ import {
   ActionIcon,
   Loader,
   Center,
-  Alert
+  Alert,
+  Image
 } from '@mantine/core';
 import { IconPlus, IconPencil, IconTrash, IconPackage } from '@tabler/icons-react';
 
@@ -78,7 +79,7 @@ export function AdminProductIndex() {
         <Group gap="sm">
           <IconPackage size={28} style={{ color: 'var(--mantine-color-blue-5)' }} />
           <Title order={2} fw={700} c="white" style={{ textTransform: 'uppercase', letterSpacing: '-0.5px' }}>
-            Inventory Control Console
+            Inventory 
           </Title>
         </Group>
         
@@ -108,7 +109,8 @@ export function AdminProductIndex() {
           <Table verticalSpacing="sm" horizontalSpacing="md" highlightOnHover variant="unstyled">
             <Table.Thead style={{ backgroundColor: 'var(--mantine-color-dark-8)', borderBottom: '1px solid var(--mantine-color-dark-4)' }}>
               <Table.Tr>
-                <Table.Th style={{ color: 'var(--mantine-color-dark-2)' }}>Product Specification Title</Table.Th>
+                <Table.Th style={{ color: 'var(--mantine-color-dark-2)' }} w={80}>Image</Table.Th>
+                <Table.Th style={{ color: 'var(--mantine-color-dark-2)' }}>Product Name</Table.Th>
                 <Table.Th style={{ color: 'var(--mantine-color-dark-2)' }}>Category</Table.Th>
                 <Table.Th style={{ color: 'var(--mantine-color-dark-2)' }} ta="right">Unit Price</Table.Th>
                 <Table.Th style={{ color: 'var(--mantine-color-dark-2)' }} ta="center" w={100}>Actions</Table.Th>
@@ -117,6 +119,17 @@ export function AdminProductIndex() {
             <Table.Tbody>
               {products.map((product) => (
                 <Table.Tr key={product.id} style={{ borderBottom: '1px solid var(--mantine-color-dark-6)' }}>
+                  <Table.Td>
+                    <Image
+                      src={product.imageUrl || 'https://placehold.co/600x400/1a1a1a/FFF?text=No+Image'}
+                      alt={product.name}
+                      w={44}
+                      h={44}
+                      radius="sm"
+                      fallbackSrc="https://placehold.co/600x400/1a1a1a/FFF?text=No+Image"
+                      style={{ objectFit: 'cover', border: '1px solid var(--mantine-color-dark-5)' }}
+                    />
+                  </Table.Td>
                   <Table.Td>
                     <Text size="sm" fw={500} c="white">
                       {product.name}

@@ -206,9 +206,9 @@ export function OrderManagementDetails() {
       <Group justify="space-between" mb="xl">
         <div>
           <Title order={2} c="white" fw={700} style={{ letterSpacing: '-0.5px' }}>
-            ORDER SPECIFICATION CONTROL
+            ORDER DETAILS
           </Title>
-          <Text size="sm" c="dimmed">ID Target Index: #{orderHeader.id}</Text>
+          <Text size="sm" c="dimmed">ID: #{orderHeader.id}</Text>
         </div>
         <Badge size="lg" color={getStatusColor(orderHeader.orderStatus)} variant="filled" radius="sm">
           STATUS: {orderHeader.orderStatus?.toUpperCase()}
@@ -227,7 +227,7 @@ export function OrderManagementDetails() {
           <Paper p="xl" radius="md" bg="dark.7" withBorder style={{ borderColor: 'var(--mantine-color-dark-4)' }}>
             <Group mb="md" gap="xs">
               <IconTruck size={20} color="var(--mantine-color-blue-4)" />
-              <Text size="md" fw={600} c="white">LOGISTICAL METADATA TARGETS</Text>
+              <Text size="md" fw={600} c="white">CUSTOMER DETAILS</Text>
             </Group>
             <Divider mb="lg" color="dark.4" />
 
@@ -355,11 +355,11 @@ export function OrderManagementDetails() {
               <Divider my="md" color="dark.4" />
 
               <Group justify="space-between" mb="xs">
-                <Text size="sm" c="dimmed">Payment Method Pipeline:</Text>
+                <Text size="sm" c="dimmed">Payment Method:</Text>
                 <Badge variant="outline" color="purple">Stripe Sandbox Gateway</Badge>
               </Group>
               <Group justify="space-between" mb="xl">
-                <Text size="md" fw={700} c="white">Total Revenue Realized:</Text>
+                <Text size="md" fw={700} c="white">Total:</Text>
                 <Text size="xl" fw={700} c="green.4">€{orderHeader.orderTotal.toFixed(2)}</Text>
               </Group>
             </Paper>
@@ -418,7 +418,7 @@ export function OrderManagementDetails() {
                   
                   {orderHeader.orderStatus?.toLowerCase() === 'cancelled' && (
                     <Alert color="red" variant="light" py="xs">
-                      This entry block is locked out as a revoked/refunded ledger balance.
+                      This order has been refunded.
                     </Alert>
                   )}
                 </Stack>

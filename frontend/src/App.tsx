@@ -15,6 +15,7 @@ import { CustomerOrdersView } from './features/orders/CustomerOrdersView';
 import { CustomerOrderDetailsView } from './features/orders/CustomerOrderDetailsView';
 import { ProductManagementForm } from './features/admin/ProductManagementForm';
 import { AdminProductIndex } from './features/admin/AdminProductIndex';
+import { AdminCategoryIndex } from './features/admin/AdminCategoryIndex';
 import '@mantine/core/styles.css';
 
 function App() {
@@ -36,6 +37,7 @@ function App() {
               <Route path="/admin/orders" element={<OrderManagementIndex />} />
               <Route path="/admin/orders/:id" element={<OrderManagementDetails />} />
               <Route path="/admin/products" element={<AdminProductIndex />} />
+              <Route path="/admin/categories" element={<AdminCategoryIndex />} />
 <Route path="/admin/products/create" element={<ProductManagementForm />} />
 <Route path="/admin/products/edit/:id" element={<ProductManagementForm />} />
               <Route path="*" element={<div><h2>404 - Resource Not Found</h2></div>} />

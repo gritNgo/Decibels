@@ -15,9 +15,12 @@ import {
   Stack,
   Alert,
   Loader,
-  Center
+  Center,
+  Image,
+  Text,
+  Box
 } from '@mantine/core';
-import { IconArrowLeft, IconUpload, IconDeviceFloppy } from '@tabler/icons-react';
+import { IconArrowLeft, IconUpload, IconDeviceFloppy, IconPhoto } from '@tabler/icons-react';
 
 export function ProductManagementForm() {
   const navigate = useNavigate();
@@ -28,6 +31,10 @@ export function ProductManagementForm() {
   const [formLoading, setFormLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  // Tracking baseline image URL from DB vs active client-side unsaved file preview
+  const [existingImageUrl, setExistingImageUrl] = useState<string | null>(null);
+  const [localFilePreviewUrl, setLocalFilePreviewUrl] = useState<string | null>(null);
 
   // Form State Layout
   const [formValues, setFormValues] = useState<ProductUpsertDTO>({
@@ -43,12 +50,10 @@ export function ProductManagementForm() {
 
     async function loadFormContext() {
       try {
-        // Parallelized lookup load with type constraints on parameters
         const catData = await catalogApi.getCategories(controller.signal);
         const mappedCats = catData.map((c: Category) => ({ value: c.id.toString(), label: c.name }));
         setCategories(mappedCats);
 
-        // If editing, pull existing metadata metrics down to seed form values
         if (isEditMode) {
           const products = await catalogApi.getAdminProducts(controller.signal);
           const target = products.find((p: Product) => p.id === Number(id));
@@ -59,8 +64,9 @@ export function ProductManagementForm() {
               description: target.description || '',
               price: target.price,
               categoryId: target.categoryId.toString(),
-              imageFile: null // Keep null unless customer updates file explicitly
+              imageFile: null
             });
+            setExistingImageUrl(target.imageUrl || null);
           } else {
             throw new Error('Target product asset reference missing from remote database.');
           }
@@ -78,6 +84,29 @@ export function ProductManagementForm() {
     return () => controller.abort();
   }, [id, isEditMode]);
 
+  // Clean listener to turn uploaded files into real-time visual streams
+  const handleFileChange = (file: File | null) => {
+    setFormValues(v => ({ ...v, imageFile: file }));
+    
+    // Revoke previous local object preview URLs cleanly to prevent application memory leaks
+    if (localFilePreviewUrl) {
+      URL.revokeObjectURL(localFilePreviewUrl);
+      setLocalFilePreviewUrl(null);
+    }
+
+    if (file) {
+      const objectUrl = URL.createObjectURL(file);
+      setLocalFilePreviewUrl(objectUrl);
+    }
+  };
+
+  // Lifecycle teardown to completely wipe generated preview URLs when component unmounts
+  useEffect(() => {
+    return () => {
+      if (localFilePreviewUrl) URL.revokeObjectURL(localFilePreviewUrl);
+    };
+  }, [localFilePreviewUrl]);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!formValues.name || !formValues.categoryId || formValues.price <= 0) {
@@ -90,7 +119,7 @@ export function ProductManagementForm() {
 
     try {
       await catalogApi.upsertProduct(formValues);
-      navigate('/admin/products'); // Fall back directly to index grid layout on success
+      navigate('/admin/products');
     } catch (err: unknown) {
       if (err instanceof Error) {
         setError(err.message || 'Database write processing crash.');
@@ -113,6 +142,9 @@ export function ProductManagementForm() {
     );
   }
 
+  // Choose preview source: prioritizes new modifications over existing database records
+  const activePreviewUrl = localFilePreviewUrl || existingImageUrl;
+
   return (
     <Container size="sm" my="xl">
       <Button
@@ -123,12 +155,12 @@ export function ProductManagementForm() {
         c="dimmed"
         mb="lg"
       >
-        BACK TO PRODUCTS
+        BACK TO INVENTORY
       </Button>
 
       <Paper radius="md" p="xl" withBorder bg="dark.7" style={{ borderColor: 'var(--mantine-color-dark-4)' }}>
         <Title order={2} fw={700} c="white" mb="xl" style={{ textTransform: 'uppercase', letterSpacing: '-0.5px' }}>
-          {isEditMode ? 'Modify Product Specifications' : 'Register New Inventory Asset'}
+          {isEditMode ? 'Edit Product' : 'New Product'}
         </Title>
 
         {error && (
@@ -139,8 +171,34 @@ export function ProductManagementForm() {
 
         <form onSubmit={handleSubmit}>
           <Stack gap="md">
+            
+            {/* REAL-TIME DYNAMIC IMAGE PREVIEW PANEL */}
+            <Box style={{ border: '1px dashed var(--mantine-color-dark-4)', borderRadius: 'var(--mantine-radius-md)', overflow: 'hidden' }} bg="dark.8" p="md">
+              
+              {activePreviewUrl ? (
+                <Center style={{ flexDirection: 'column' }}>
+                  <Image
+                    src={activePreviewUrl}
+                    alt="Active media asset state"
+                    h={200}
+                    w="auto"
+                    radius="sm"
+                    fit="contain"
+                    fallbackSrc="https://placehold.co/600x400/1a1a1a/FFF?text=Error+Loading+Media+Asset"
+                  />
+                </Center>
+              ) : (
+                <Center style={{ height: '150px', flexDirection: 'column' }}>
+                  <IconPhoto size={40} style={{ color: 'var(--mantine-color-dark-4)' }} stroke={1.5} />
+                  <Text size="xs" c="dimmed" mt="xs">
+                    No image 
+                  </Text>
+                </Center>
+              )}
+            </Box>
+
             <TextInput
-              label="Product Title"
+              label="Product Name"
               placeholder="e.g., Shure SM7B Custom Variant"
               required
               value={formValues.name}
@@ -148,7 +206,7 @@ export function ProductManagementForm() {
             />
 
             <Select
-              label="Category Mapping Lookup"
+              label="Category"
               placeholder="Select target structural category"
               required
               data={categories}
@@ -157,7 +215,7 @@ export function ProductManagementForm() {
             />
 
             <NumberInput
-              label="Unit Purchase Retail Price (€)"
+              label="Unit Price (€)"
               placeholder="199.99"
               required
               min={0.01}
@@ -169,7 +227,7 @@ export function ProductManagementForm() {
             />
 
             <Textarea
-              label="Technical Description / Specifications Overview"
+              label="Description"
               placeholder="Provide clean HTML or string markdown documentation layouts for this audio device asset..."
               minRows={4}
               value={formValues.description}
@@ -177,13 +235,13 @@ export function ProductManagementForm() {
             />
 
             <FileInput
-              label="Binary Image Asset Context"
-              placeholder={isEditMode ? "Leave empty to keep current persistent image reference" : "Choose file image target..."}
+              label="Image"
+              placeholder={isEditMode ? "Leave empty to keep current image" : "Choose file..."}
               leftSection={<IconUpload size={16} />}
               accept="image/png,image/jpeg,image/webp"
               clearable
               value={formValues.imageFile}
-              onChange={(file) => setFormValues(v => ({ ...v, imageFile: file }))}
+              onChange={handleFileChange} // Wired up to the clean state proxy stream pipeline
             />
 
             <Button
@@ -195,7 +253,7 @@ export function ProductManagementForm() {
               leftSection={<IconDeviceFloppy size={18} />}
               fullWidth
             >
-              SAVE PRODUCT SPECIFICATIONS
+              SAVE
             </Button>
           </Stack>
         </form>
