@@ -30,7 +30,7 @@ namespace Decibels.API.ViewComponents
                 }
 
                 // user logged in
-                return View(HttpContext.Session.GetInt32(StaticDetails.SessionCart));
+                return View(HttpContext.Session.GetInt32(StaticDetails.SessionCart) ?? 0);
             }
             else
             {
