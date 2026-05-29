@@ -39,6 +39,19 @@ export interface Product {
   imageUrl?: string;
 }
 
+// ---------------------------------------------------------
+// ADMINISTRATIVE MANAGEMENT CONTROL SCHEMAS
+// ---------------------------------------------------------
+
+export interface ProductUpsertDTO {
+  id?: number;          // Populated during edit passes, missing during fresh creates
+  name: string;
+  description: string;
+  price: number;
+  categoryId: string;   // Kept as string for Mantine's <Select> data keys
+  imageFile: File | null; // Captures the binary file handle from the HTML input layer
+}
+
 export interface ShoppingCart {
   id: number;
   productId: number;
@@ -112,3 +125,4 @@ export interface BaseApiResponse {
   success: boolean;
   message?: string;
 }
+

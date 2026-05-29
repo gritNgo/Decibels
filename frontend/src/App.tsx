@@ -13,6 +13,8 @@ import { OrderManagementIndex } from './features/admin/OrderManagementIndex';
 import { OrderManagementDetails } from './features/admin/OrderManagementDetails';
 import { CustomerOrdersView } from './features/orders/CustomerOrdersView';
 import { CustomerOrderDetailsView } from './features/orders/CustomerOrderDetailsView';
+import { ProductManagementForm } from './features/admin/ProductManagementForm';
+import { AdminProductIndex } from './features/admin/AdminProductIndex';
 import '@mantine/core/styles.css';
 
 function App() {
@@ -23,9 +25,9 @@ function App() {
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Layout />}>
+              <Route path="login" element={<LoginView />} />
               <Route index element={<ProductCatalog />} />
               <Route path="product/:id" element={<ProductDetails />} /> 
-
               <Route path="cart" element={<CartView />} />
               <Route path="/summary" element={<SummaryView />} />
               <Route path="/orders" element={<CustomerOrdersView />} />
@@ -33,7 +35,9 @@ function App() {
               <Route path="/order-confirmation/:id" element={<OrderConfirmationView />} />
               <Route path="/admin/orders" element={<OrderManagementIndex />} />
               <Route path="/admin/orders/:id" element={<OrderManagementDetails />} />
-              <Route path="login" element={<LoginView />} />
+              <Route path="/admin/products" element={<AdminProductIndex />} />
+<Route path="/admin/products/create" element={<ProductManagementForm />} />
+<Route path="/admin/products/edit/:id" element={<ProductManagementForm />} />
               <Route path="*" element={<div><h2>404 - Resource Not Found</h2></div>} />
             </Route>
           </Routes>
