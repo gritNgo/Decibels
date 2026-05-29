@@ -1,6 +1,8 @@
 import { useEffect, useState } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { cartApi, type ShoppingCartVM, type ShoppingCartItem } from '../../api/cart';
+// Pull the global context tracking hook
+import { useCart } from '../../context/CartContext'; 
 import {
   Container,
   Paper,
@@ -21,11 +23,12 @@ import { IconPlus, IconMinus, IconTrash, IconShoppingCart, IconArrowLeft, IconAl
 
 export function CartView() {
   const navigate = useNavigate();
+  // Extract the context refresh pipeline
+  const { refreshCartCount } = useCart(); 
   const [cartData, setCartData] = useState<ShoppingCartVM | null>(null);
   const [globalLoading, setGlobalLoading] = useState(true);
   const [rowActionId, setRowActionId] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
-  
   // Track synchronization state variables explicitly to satisfy strict custom rules
   const [shouldRefresh, setShouldRefresh] = useState(true);
 
@@ -67,6 +70,9 @@ export function CartView() {
       if (action === 'plus') await cartApi.plusItem(cartId);
       if (action === 'minus') await cartApi.minusItem(cartId);
       if (action === 'remove') await cartApi.removeItem(cartId);
+      
+      // Simultaneously fire the background telemetry refresh to update the global navbar layout
+      await refreshCartCount();
       
       // Flip the reactive synchronization flag instead of executing setState functions directly inside callbacks
       setShouldRefresh(true); 
@@ -126,7 +132,7 @@ export function CartView() {
                       {item.product?.name}
                     </Text>
                     <Text size="sm" c="blue.4" fw={500}>
-                      ${item.product?.price.toFixed(2)}
+                      €{item.product?.price.toFixed(2)}
                     </Text>
                   </Grid.Col>
 
@@ -157,7 +163,7 @@ export function CartView() {
                   <Grid.Col span={{ base: 6, sm: 2 }}>
                     <Group justify="space-between">
                       <Text fw={700} size="md" c="white">
-                        ${(item.product?.price * item.quantity).toFixed(2)}
+                        €{(item.product?.price * item.quantity).toFixed(2)}
                       </Text>
                       <ActionIcon 
                         variant="filled" 
@@ -178,7 +184,7 @@ export function CartView() {
             <Group justify="flex-end" p="md">
               <Group gap="xs">
                 <Text size="lg" fw={600} c="dimmed" style={{ textTransform: 'uppercase' }}>Order Total:</Text>
-                <Text size="xl" fw={900} c="white">${totalCost.toFixed(2)}</Text>
+                <Text size="xl" fw={900} c="white">€{totalCost.toFixed(2)}</Text>
               </Group>
             </Group>
 

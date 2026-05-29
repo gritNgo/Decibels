@@ -2,6 +2,8 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate, Link } from 'react-router-dom';
 import { catalogApi } from '../../api/catalog';
 import { cartApi } from '../../api/cart';
+// global cart hook refreshCartCount() immediately after the upsertItem promise resolves
+import { useCart } from '../../context/CartContext'; 
 import type { ShoppingCart } from '../../types';
 import { 
   Container, 
@@ -30,6 +32,7 @@ type DetailState =
 export function ProductDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
+  const { refreshCartCount } = useCart(); // Extract the reactive synchronization method
   
   // If the ID route parameter context is missing entirely, seed the error immediately to satisfy ESLint
   const [state, setState] = useState<DetailState>(() => 
@@ -58,21 +61,24 @@ export function ProductDetails() {
   }, [id]);
 
   const handleAddToCart = async () => {
-  if (!id) return;
-  setIsAdding(true);
-  try {
-    // Call the dedicated POST upsert route instead of PATCH plus
+    if (!id) return;
+    setIsAdding(true);
+    try {
+      // Call the dedicated POST upsert route instead of PATCH plus
     // We send the actual product identity context alongside the selected input quantity state counter
-    await cartApi.upsertItem(Number(id), Number(quantity)); 
-    
+      await cartApi.upsertItem(Number(id), Number(quantity)); 
+      
+      // Force the global layout engine to put the current database state into reactive memory
+      await refreshCartCount();
+      
     // Success: Seamless transition to the updated shopping cart layout
-    navigate('/cart');
-  } catch (err) {
-    console.error("Failed to append entry to persistent storage:", err);
-  } finally {
-    setIsAdding(false);
-  }
-};
+      navigate('/cart');
+    } catch (err) {
+      console.error("Failed to append entry to persistent storage:", err);
+    } finally {
+      setIsAdding(false);
+    }
+  };
 
   if (state.status === 'loading') {
     return (

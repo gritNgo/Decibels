@@ -1,6 +1,7 @@
 import { MantineProvider } from '@mantine/core';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from './context/AuthContext';
+import { CartProvider } from './context/CartContext';
 import { Layout } from './components/Layout';
 import { ProductCatalog } from './features/catalog/ProductCatalog'; 
 import {ProductDetails} from './features/catalog/ProductDetails';
@@ -18,6 +19,7 @@ function App() {
   return (
     <MantineProvider defaultColorScheme="dark">
       <AuthProvider>
+        <CartProvider>
         <BrowserRouter>
           <Routes>
             <Route path="/" element={<Layout />}>
@@ -36,6 +38,7 @@ function App() {
             </Route>
           </Routes>
         </BrowserRouter>
+          </CartProvider>
       </AuthProvider>
     </MantineProvider>
   );
