@@ -45,7 +45,7 @@ namespace Decibels.API.UnitTests
         }
 
         [Test]
-        public async Task Update_WithNewFile_InvokesStorageAndReturnsOk()
+        public async Task Upsert_WithExistingIdAndNewFile_InvokesStorageAndReturnsOk()
         {
             // Arrange: Give it a baseline ImageUrl string so the controller triggers the deletion sequence
             var product = new Product 
@@ -62,12 +62,12 @@ namespace Decibels.API.UnitTests
                     It.IsAny<string>(), 
                     It.IsAny<bool>()))  
                 .Returns(product);
-        
+    
             _mockStorage.Setup(s => s.UploadFileAsync(It.IsAny<IFormFile>(), It.IsAny<string>(), It.IsAny<string>()))
                 .ReturnsAsync("https://azure.blob/new.jpg");
 
-            // Act
-            var result = await _controller.Update(1, product, mockFile.Object);
+            // Act - Call Upsert instead of Update to match your new controller route
+            var result = await _controller.Upsert(product, mockFile.Object);
 
             // Assert
             result.Should().BeOfType<OkObjectResult>();
