@@ -13,7 +13,7 @@ using Decibels.API.Areas.Customer.Controllers;
 using Decibels.DataAccess.Repository.IRepository;
 using Decibels.Models;
 
-namespace Decibels.API.Tests
+namespace Decibels.API.UnitTests
 {
     [TestFixture]
     public class CartControllerTests

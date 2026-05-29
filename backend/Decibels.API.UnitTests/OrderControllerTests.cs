@@ -11,7 +11,7 @@ using Decibels.DataAccess.Repository.IRepository;
 using Decibels.Models;
 using Decibels.Utility;
 
-namespace Decibels.API.Tests
+namespace Decibels.API.UnitTests
 {
     [TestFixture]
     public class OrderControllerTests

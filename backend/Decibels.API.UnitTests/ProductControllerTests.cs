@@ -12,7 +12,7 @@ using Decibels.DataAccess.Repository.IRepository;
 using Decibels.Models;
 using Decibels.API.Services;
 
-namespace Decibels.API.Tests
+namespace Decibels.API.UnitTests
 {
     [TestFixture]
     public class ProductControllerTests
