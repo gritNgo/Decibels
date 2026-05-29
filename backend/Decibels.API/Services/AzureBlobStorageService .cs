@@ -11,7 +11,14 @@ namespace Decibels.API.Services
         public AzureBlobStorageService(IConfiguration configuration)
         {
             _configuration = configuration;
-            string connectionString = _configuration.GetConnectionString("AzureStorage"); // creates its own BlobServiceClient instance
+            // Read directly from the root of configuration instead of the ConnectionStrings shorthand block
+            string connectionString = _configuration["AzureStorageConnectionString"]; 
+    
+            if (string.IsNullOrEmpty(connectionString))
+            {
+                throw new InvalidOperationException("Azure Storage Connection String is missing from configurations.");
+            }
+
             _blobServiceClient = new BlobServiceClient(connectionString);
         }
 

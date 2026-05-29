@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using Decibels.API.Services;
+using Microsoft.AspNetCore.Http;
+using Microsoft.Extensions.Logging;
 
 namespace Decibels.API.Areas.Admin.Controllers
 {
@@ -64,77 +66,70 @@ namespace Decibels.API.Areas.Admin.Controllers
             }
         }
 
-        // POST: api/product
-        // Uses [FromForm] to natively bind binary multipart streams transmitted from the client layout forms
-        [HttpPost]
-        public async Task<IActionResult> Create([FromForm] Product product, IFormFile? file)
+        // POST: api/product/upsert
+        // Matches frontend's expected catalogApi payload endpoint route
+        [HttpPost("upsert")]
+        public async Task<IActionResult> Upsert([FromForm] Product product, IFormFile? file)
         {
             try
             {
-                if (!ModelState.IsValid) return BadRequest(ModelState);
+                // Force-strip validation checking on navigation components to prevent EF tracking validation blocks
+                ModelState.Remove("Category");
 
-                if (file != null)
+                if (!ModelState.IsValid) 
+                    return BadRequest(new { message = "Validation failure mapping parameters.", errors = ModelState });
+
+                // CREATE BRANCH
+                if (product.Id == 0)
                 {
-                    string newImageUrl = await _storageService.UploadFileAsync(file, ImageContainerName, "images/product");
-                    product.ImageUrl = newImageUrl;
-                }
-
-                _unitOfWork.Product.Add(product);
-                _unitOfWork.Save();
-
-                return CreatedAtAction(nameof(GetById), new { id = product.Id }, new { success = true, data = product });
-            }
-            catch (Exception ex)
-            {
-                _logger.LogError(ex, "Transaction collision injecting new binary product metadata targets.");
-                return StatusCode(500, "Cloud storage or write boundary execution failure.");
-            }
-        }
-
-        // PUT: api/product/5
-        [HttpPut("{id}")]
-        public async Task<IActionResult> Update(int id, [FromForm] Product product, IFormFile? file)
-        {
-            try
-            {
-                if (id != product.Id || id <= 0)
-                {
-                    return BadRequest(new { message = "Mismatched or invalid request index route identity signatures." });
-                }
-
-                if (!ModelState.IsValid) return BadRequest(ModelState);
-
-                var existingProduct = _unitOfWork.Product.Get(u => u.Id == id, tracked: false);
-                if (existingProduct == null) return NotFound(new { message = "Target update item trace lost." });
-
-                string oldImageUrl = existingProduct.ImageUrl;
-
-                if (file != null)
-                {
-                    // Erase obsolete historical cloud assets cleanly before re-writing indexes
-                    if (!string.IsNullOrEmpty(oldImageUrl))
+                    if (file != null)
                     {
-                        await _storageService.DeleteFileAsync(oldImageUrl, ImageContainerName);
+                        string newImageUrl = await _storageService.UploadFileAsync(file, ImageContainerName, "images/product");
+                        product.ImageUrl = newImageUrl;
+                    }
+                    else
+                    {
+                        product.ImageUrl = "";
                     }
 
-                    string newImageUrl = await _storageService.UploadFileAsync(file, ImageContainerName, "images/product");
-                    product.ImageUrl = newImageUrl;
+                    _unitOfWork.Product.Add(product);
+                    _unitOfWork.Save();
+                    return Ok(new { success = true, message = "Product record created successfully.", data = product });
                 }
+                // UPDATE BRANCH
                 else
                 {
-                    // Preserve verified baseline tracking asset signatures if no modification is submitted
-                    product.ImageUrl = oldImageUrl;
+                    var existingProduct = _unitOfWork.Product.Get(u => u.Id == product.Id, tracked: false);
+                    if (existingProduct == null) 
+                        return NotFound(new { message = $"Target update item trace lost for ID: {product.Id}" });
+
+                    string oldImageUrl = existingProduct.ImageUrl;
+
+                    if (file != null)
+                    {
+                        // Erase obsolete historical cloud assets cleanly before re-writing indexes
+                        if (!string.IsNullOrEmpty(oldImageUrl))
+                        {
+                            await _storageService.DeleteFileAsync(oldImageUrl, ImageContainerName);
+                        }
+
+                        string newImageUrl = await _storageService.UploadFileAsync(file, ImageContainerName, "images/product");
+                        product.ImageUrl = newImageUrl;
+                    }
+                    else
+                    {
+                        product.ImageUrl = oldImageUrl; // Preserve asset reference if not updated
+                    }
+
+                    _unitOfWork.Product.Update(product);
+                    _unitOfWork.Save();
+                    return Ok(new { success = true, message = "Product record synchronized seamlessly.", data = product });
                 }
-
-                _unitOfWork.Product.Update(product);
-                _unitOfWork.Save();
-
-                return Ok(new { success = true, message = "Product record synchronized seamlessly.", data = product });
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, $"Database tracking adjustment failure for product context signature key: {id}");
-                return StatusCode(500, "Persistence tier asset synchronization collision.");
+                _logger.LogError(ex, "Transaction collision inside Upsert pipeline.");
+                return StatusCode(500, new { message = "Cloud storage or data serialization constraint failure.", details = ex.Message });
             }
         }
 
