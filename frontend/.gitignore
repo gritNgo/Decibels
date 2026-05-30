@@ -28,3 +28,6 @@ dist-ssr
 .env.development
 .env.local
 .env.production
+
+# Explicitly allow tracking production configuration blueprint
+!.env.production
