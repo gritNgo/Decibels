@@ -299,8 +299,9 @@ namespace Decibels.API.Areas.Customer.Controllers
         [HttpPatch("plus/{cartId}")]
         public IActionResult Plus(int cartId)
         {
-            var cartFromDb = _unitOfWork.ShoppingCart.Get(u => u.Id == cartId);
-            if (cartFromDb == null) return NotFound();
+            // Pass tracked: true explicitly to attach the entity straight to the DB context graph
+            var cartFromDb = _unitOfWork.ShoppingCart.Get(u => u.Id == cartId, tracked: true);
+            if (cartFromDb == null) return NotFound(new { message = "Target cart record trace missing." });
 
             cartFromDb.Quantity += 1;
             _unitOfWork.ShoppingCart.Update(cartFromDb);
@@ -312,8 +313,9 @@ namespace Decibels.API.Areas.Customer.Controllers
         [HttpPatch("minus/{cartId}")]
         public IActionResult Minus(int cartId)
         {
+            // Pass tracked: true explicitly to manage identity boundaries safely
             var cartFromDb = _unitOfWork.ShoppingCart.Get(u => u.Id == cartId, tracked: true);
-            if (cartFromDb == null) return NotFound();
+            if (cartFromDb == null) return NotFound(new { message = "Target cart record trace missing." });
 
             if (cartFromDb.Quantity <= 1)
             {
