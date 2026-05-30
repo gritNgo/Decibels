@@ -171,20 +171,27 @@ StripeConfiguration.ApiKey = stripeSecretKey;
 app.UseAuthentication();
 app.UseAuthorization();
 
-// Execution Database Seeding on boot
-SeedDatabase();
-
 // Map API Attribute Controllers instead of server-side Razor/MVC routes
 app.MapControllers();
+
+// Execution Database Seeding on boot
+SeedDatabase();
 
 app.Run();
 
 // Database initialization helper scope isolated cleanly
 void SeedDatabase()
 {
-    using var scope = app.Services.CreateScope();
-    var dbInitializer = scope.ServiceProvider.GetRequiredService<IDbInitializer>();
-    dbInitializer.Initialize();
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var dbInitializer = scope.ServiceProvider.GetRequiredService<IDbInitializer>();
+        dbInitializer.Initialize();
+    }
+    catch (Exception ex)
+    {
+        Log.Fatal(ex, "An unhandled exception occurred during the production database seeding phase.");
+    }
 }
 
 // This forces the compiler to expose Program publicly, unlocking it for WebApplicationFactory assembly wrapper used in the integration testsproject
