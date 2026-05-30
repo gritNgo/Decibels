@@ -31,7 +31,7 @@ jobs:
         run: dotnet restore backend/Decibels.sln
 
       - name: Execute Core API Boundary Tests (TDD Contract Focus)
-        run: dotnet test backend/Decibels.sln --configuration Release --no-restore
+        run: dotnet test backend/Decibels.sln --configuration Release --no-restore --logger "console;verbosity=normal" -v m
 
   deploy-to-azure:
     needs: test-and-build
