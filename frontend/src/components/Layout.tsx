@@ -53,20 +53,20 @@ export function Layout() {
                 </Anchor>
               )}
               
-              {/* Streamlined, Scope-Compliant Admin Dropdown */}
+              {/* Streamlined, Scope-Compliant Admin Navigation */}
               {isAdmin && (
-              <Anchor 
-                component={Link} 
-                to="/admin/products" 
-                c="dimmed" 
-                size="sm"
-              >
-                Product Management
-              </Anchor>
-            )}
+                <Anchor 
+                  component={Link} 
+                  to="/admin/products" 
+                  c="dimmed" 
+                  size="sm"
+                >
+                  Product Management
+                </Anchor>
+              )}
 
-              {/* Hide shopping cart entirely for administrative user sessions */}
-              {!isAdmin && (
+              {/* Render shopping cart for any authenticated user session */}
+              {isAuthenticated && (
                 <Anchor component={Link} to="/cart" c="dimmed" size="sm">
                   Cart ({cartCount})
                 </Anchor>
@@ -80,7 +80,6 @@ export function Layout() {
               ) : (
                 <>
                   <Button component={Link} to="/login" variant="light" size="xs">Login</Button>
-                  <Button component={Link} to="/register" variant="filled" size="xs">Register</Button>
                 </>
               )}
             </Group>
