@@ -210,10 +210,13 @@ namespace Decibels.API.Areas.Customer.Controllers
                     var domain = _configuration["FrontendUrl"] 
                                  ?? throw new InvalidOperationException("Frontend URL configuration contract missing.");
 
+                    // Defensive slash evaluation to bypass string concatenation bugs entirely
+                    var baseDomainWithSlash = domain.EndsWith('/') ? domain : domain + "/";
+
                     var options = new SessionCreateOptions
                     {
-                        SuccessUrl = domain + $"order-confirmation/{postOrderHeader.Id}",  
-                        CancelUrl = domain + "cart",
+                        SuccessUrl = baseDomainWithSlash + $"order-confirmation/{postOrderHeader.Id}",  
+                        CancelUrl = baseDomainWithSlash + "cart",
                         LineItems = new List<SessionLineItemOptions>(),
                         Mode = "payment",
                     };
