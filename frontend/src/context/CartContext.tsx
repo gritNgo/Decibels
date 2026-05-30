@@ -10,11 +10,11 @@ const CartContext = createContext<CartContextType | undefined>(undefined);
 
 export function CartProvider({ children }: { children: React.ReactNode }) {
   const [cartCount, setCartCount] = useState(0);
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated } = useAuth(); // Removed isAdmin from destructuring if not needed elsewhere
 
   const refreshCartCount = useCallback(async () => {
-    // Admins do not participate in commercial shopping carts
-    if (!isAuthenticated || isAdmin) {
+    // Only short-circuit if the user is completely unauthenticated
+    if (!isAuthenticated) {
       setCartCount(0);
       return;
     }
@@ -33,10 +33,6 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
 
       if (response.ok) {
         const cartVm = await response.json();
-        // Strongly typed replacement for explicit 'any' to satisfy rule constraints
-        // Match the explicit .NET ShoppingCartVM contract parameters
-        // C# ShoppingCartList -> json shoppingCartList
-        // C# Quantity -> json quantity
         const totalItems = (cartVm.shoppingCartList || []).reduce(
           (acc: number, item: { quantity: number }) => acc + item.quantity, 
           0
@@ -47,7 +43,7 @@ export function CartProvider({ children }: { children: React.ReactNode }) {
     } catch (err) {
       console.error('Telemetry fault synchronizing global cart context state:', err);
     }
-  }, [isAuthenticated, isAdmin]);
+  }, [isAuthenticated]); // Removed isAdmin from dependency array
 
   // Safely execute the state mutation loop within a standard asynchronous side-effect lifecycle
   useEffect(() => {
