@@ -1,6 +1,7 @@
-import { AppShell, Group, Anchor, Button, Container } from '@mantine/core';
+import { AppShell, Group, Anchor, Button, Container, Text, Divider } from '@mantine/core';
 import { Link, Outlet } from 'react-router-dom';
-// Global eactive state hooks
+import { IconBrandGithub, IconBrandLinkedin } from '@tabler/icons-react';
+// Global reactive state hooks
 import { useAuth } from '../context/AuthContext';
 import { useCart } from '../context/CartContext'; 
 
@@ -13,7 +14,7 @@ export function Layout() {
       header={{ height: 60 }}
       padding="md"
       styles={{
-        main: { background: 'var(--mantine-color-dark-8)' }
+        main: { background: 'var(--mantine-color-dark-8)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }
       }}
     >
       {/* HEADER SECTION */}
@@ -25,47 +26,45 @@ export function Layout() {
                 src="/images/logo.png" 
                 alt="Decibels Logo" 
                 style={{ 
-                 height: '40px',             // Restricts vertical scaling to stay inside the 60px nav bar
-                width: 'auto',              // Auto-calculates horizontal aspect ratio dynamically
-                display: 'block',
-                filter: 'invert(1) brightness(1.5)', // Inverts black text to white/light-silver for dark mode parity
-                transition: 'transform 0.2s ease'    // Smooth micro-interaction transition hint   
+                  height: '40px',             
+                  width: 'auto',              
+                  display: 'block',
+                  filter: 'invert(1) brightness(1.5)', 
+                  transition: 'transform 0.2s ease'       
                 }} 
-              // hover effect
                 onMouseEnter={(e) => e.currentTarget.style.transform = 'scale(1.02)'}
                 onMouseLeave={(e) => e.currentTarget.style.transform = 'scale(1)'}
               />
             </Anchor>
 
             {/* NAV NAVIGATION LINKS */}
-            <Group gap="md">
+            <Group gap="sm">
               <Anchor component={Link} to="/" c="dimmed" size="sm">Home</Anchor>
               
-              {/* Unified Navigation: Role-based isolation */}
               {isAuthenticated && (
                 <Anchor 
                   component={Link} 
                   to={isAdmin ? "/admin/orders" : "/orders"} 
                   c="dimmed" 
                   size="sm"
+                  visibleFrom="sm" 
                 >
                   {isAdmin ? "Order Management" : "My Orders"}
                 </Anchor>
               )}
               
-              {/* Streamlined, Scope-Compliant Admin Navigation */}
               {isAdmin && (
                 <Anchor 
                   component={Link} 
                   to="/admin/products" 
                   c="dimmed" 
                   size="sm"
+                  visibleFrom="sm" 
                 >
                   Product Management
                 </Anchor>
               )}
 
-              {/* Render shopping cart for any authenticated user session */}
               {isAuthenticated && (
                 <Anchor component={Link} to="/cart" c="dimmed" size="sm">
                   Cart ({cartCount})
@@ -78,9 +77,7 @@ export function Layout() {
               {isAuthenticated ? (
                 <Button variant="light" color="red" size="xs" onClick={logout}>Logout</Button>
               ) : (
-                <>
-                  <Button component={Link} to="/login" variant="light" size="xs">Login</Button>
-                </>
+                <Button component={Link} to="/login" variant="light" size="xs">Login</Button>
               )}
             </Group>
           </Group>
@@ -88,10 +85,55 @@ export function Layout() {
       </AppShell.Header>
 
       {/* CORE VIEWPORT LAYER */}
-      <AppShell.Main>
-        <Container size="lg" py="xl">
+      <AppShell.Main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
+        <Container size="lg" py="xl" style={{ flex: 1, width: '100%' }}>
           {/* Outlet is the dynamic zone where nested child route pages render */}
           <Outlet />
+        </Container>
+
+       {/* PERSISTENT FOOTER */}
+        <Container size="lg" w="100%" mt="auto" pt="xl" pb="md">
+          <Divider my="sm" color="gray.8" />
+          <Group justify="space-between" wrap="nowrap">
+            
+            {/* Left Spacer - Kept visible everywhere to anchor true horizontal centering */}
+            <Group style={{ flex: 1 }} justify="flex-start">
+              <Text size="xs" style={{ visibility: 'hidden', width: '56px' }}>Spacer</Text>
+            </Group>
+            
+            {/* Middle Text Element - Dead Center */}
+            <Text size="xs" c="dimmed" ta="center" style={{ flex: 1, whiteSpace: 'nowrap' }}>
+              © {new Date().getFullYear()} Decibels
+            </Text>
+            
+            {/* Right Social Icons */}
+            <Group gap="md" wrap="nowrap" justify="flex-end" style={{ flex: 1 }}>
+              <Anchor 
+                href="https://github.com/gritNgo/Decibels" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                c="dimmed"
+                style={{ display: 'flex', alignItems: 'center', transition: 'color 0.2s ease' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--mantine-color-blue-4)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = ''}
+              >
+                <IconBrandGithub size={20} stroke={1.5} />
+              </Anchor>
+
+              <Anchor 
+                href="https://www.linkedin.com/in/fiorenso-wattalage-fernando/" 
+                target="_blank" 
+                rel="noopener noreferrer" 
+                c="dimmed"
+                style={{ display: 'flex', alignItems: 'center', transition: 'color 0.2s ease' }}
+                onMouseEnter={(e) => e.currentTarget.style.color = 'var(--mantine-color-blue-4)'}
+                onMouseLeave={(e) => e.currentTarget.style.color = ''}
+              >
+                <IconBrandLinkedin size={20} stroke={1.5} />
+              </Anchor>
+            </Group>
+
+          </Group>
         </Container>
       </AppShell.Main>
     </AppShell>
