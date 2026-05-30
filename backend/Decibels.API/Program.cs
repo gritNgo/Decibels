@@ -86,12 +86,18 @@ builder.Services.AddScoped<IDbInitializer, DbInitializer>();
 // DECOUPLED FRONTEND & API SUPPORT SERVICES
 // ---------------------------------------------------------
 
-// Configure CORS for React frontend channel
-builder.Services.AddCors(options => {
-    options.AddDefaultPolicy(policy => {
-        policy.WithOrigins("http://localhost:5173") //  local Vite dev port
-              .AllowAnyHeader()
-              .AllowAnyMethod();
+// Reconfigured CORS p[policy for decoupled frontend channels
+var frontendUrl = builder.Configuration["FrontendUrl"] 
+                  ?? throw new InvalidOperationException("FrontendUrl is not configured.");
+
+builder.Services.AddCors(options =>
+{
+    options.AddDefaultPolicy(policy =>
+    {
+        policy.WithOrigins("http://localhost:5173", frontendUrl.TrimEnd('/')) // prevent accidents with TrimEnd()
+            .AllowAnyHeader()
+            .AllowAnyMethod()
+            .AllowCredentials(); // Essential for identity token handling, cookies, and sessions
     });
 });
 
