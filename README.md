@@ -13,6 +13,19 @@ Originally built as a .NET Core MVC monolith, this project outlines a targeted *
 
 ---
 
+## 🎯 Strategic Scope & Execution Discipline (Time-Box Constraints)
+
+This repository is **not** designed to be a feature-bloated, fully-fledged e-commerce product. Instead, it is a focused, high-velocity case study in **architectural migration and cloud-native decoupling** executed within an absolute **7-day time-box**.
+
+To hit the production deployment gate without sacrificing engineering quality, a strict scoping framework was applied to eliminate boilerplate, repetitive tasks in favor of high-risk architectural challenges:
+
+* **What Was De-scoped:** Standard, repetitive features such as Category CRUD tables, user registration flows, password reset loops, and exhaustive test coverage across low-risk components were intentionally left out. 
+* **What Was Prioritized:** Designing a stateless JWT identity system, migrating the database layer cleanly, establishing a containerized Azure orchestration topology, setting up automated federated CI/CD pipelines, and writing targeted contract tests to protect core system boundaries.
+
+> **Engineering Principle:** In production environments, shipping velocity requires trade-offs. This project demonstrates the execution discipline required to identify, isolate, and deliver the critical path of an enterprise refactor while maintaining absolute system stability under tight business constraints.
+
+---
+
 ## 🏛️ Architectural Evolution: Monolith to Decoupled SPA
 
 The primary goal of this engineering phase was to eliminate tight coupling, reduce deployment friction, and establish modern boundaries without disrupting the existing relational data model.
