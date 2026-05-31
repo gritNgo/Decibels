@@ -33,7 +33,7 @@ export function ProductCatalog() {
     return (
       <Group justify="center" py="xl">
         <Loader size="xl" type="bars" />
-        <Text size="lg" c="dimmed">Synchronizing live catalog data matrix...</Text>
+        <Text size="lg" c="dimmed">Loading...</Text>
       </Group>
     );
   }

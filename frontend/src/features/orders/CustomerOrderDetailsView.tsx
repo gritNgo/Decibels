@@ -89,9 +89,9 @@ export function CustomerOrderDetailsView() {
             <Table verticalSpacing="md" highlightOnHover>
               <Table.Thead>
                 <Table.Tr>
-                  <Table.Th c="dimmed">ITEM DESCRIPTION</Table.Th>
+                  <Table.Th c="dimmed">ITEM</Table.Th>
                   <Table.Th c="dimmed" style={{ textAlign: 'center' }}>QTY</Table.Th>
-                  <Table.Th c="dimmed">UNIT PRICE</Table.Th>
+                  <Table.Th c="dimmed">PRICE</Table.Th>
                   <Table.Th c="dimmed" style={{ textAlign: 'right' }}>SUBTOTAL</Table.Th>
                 </Table.Tr>
               </Table.Thead>

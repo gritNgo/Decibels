@@ -55,15 +55,15 @@ export function CustomerOrdersView() {
         </Badge>
       </Table.Td>
       <Table.Td style={{ textAlign: 'right' }}>
-       <Button 
-  component={Link} 
-  to={`/orders/${order.id}`} 
-  variant="subtle" 
-  size="xs"
-  leftSection={<IconEye size={14} />}
->
-  Details
-</Button>
+        <Button 
+          component={Link} 
+          to={`/orders/${order.id}`} 
+          variant="subtle" 
+          size="xs"
+          leftSection={<IconEye size={14} />}
+        >
+          Details
+        </Button>
       </Table.Td>
     </Table.Tr>
   ));
@@ -75,25 +75,29 @@ export function CustomerOrdersView() {
         <Text size="sm" c="dimmed">Track real-time settlement states of your transactional assets.</Text>
       </Stack>
 
-      <Paper radius="md" p="md" withBorder bg="dark.7" style={{ borderColor: 'var(--mantine-color-dark-4)' }}>
+      {/* overflow: 'auto' ensures the parent container acts as a bounding box */}
+      <Paper radius="md" p="md" withBorder bg="dark.7" style={{ borderColor: 'var(--mantine-color-dark-4)', overflow: 'auto' }}>
         {orders.length === 0 ? (
           <Text size="sm" c="dimmed" style={{ textAlign: 'center' }} py="xl">
             No tracked order allocations discovered on this account profile context.
           </Text>
         ) : (
-          <Table verticalSpacing="sm" highlightOnHover>
-            <Table.Thead>
-              <Table.Tr>
-                <Table.Th c="dimmed">ORDER ID</Table.Th>
-                <Table.Th c="dimmed">RECIPIENT</Table.Th>
-                <Table.Th c="dimmed">TOTAL</Table.Th>
-                <Table.Th c="dimmed">ORDER STATUS</Table.Th>
-                <Table.Th c="dimmed">PAYMENT STATUS</Table.Th>
-                <Table.Th style={{ textAlign: 'right' }} c="dimmed">ACTIONS</Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>{rows}</Table.Tbody>
-          </Table>
+          /* Enforces explicit wide rendering boundaries inside the scrollable view */
+          <Table.ScrollContainer minWidth={750}>
+            <Table verticalSpacing="sm" highlightOnHover>
+              <Table.Thead>
+                <Table.Tr>
+                  <Table.Th c="dimmed">ORDER ID</Table.Th>
+                  <Table.Th c="dimmed">RECIPIENT</Table.Th>
+                  <Table.Th c="dimmed">TOTAL</Table.Th>
+                  <Table.Th c="dimmed">ORDER STATUS</Table.Th>
+                  <Table.Th c="dimmed">PAYMENT STATUS</Table.Th>
+                  <Table.Th style={{ textAlign: 'right' }} c="dimmed">ACTIONS</Table.Th>
+                </Table.Tr>
+              </Table.Thead>
+              <Table.Tbody>{rows}</Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
         )}
       </Paper>
     </Container>

@@ -115,7 +115,7 @@ export function CartView() {
           <Center style={{ height: 250 }}>
             <Stack align="center" gap="xs">
               <IconShoppingCart size={48} color="var(--mantine-color-dark-3)" />
-              <Text fw={600} size="lg" c="dimmed">Your persistent shopping cart configuration context is empty.</Text>
+              <Text fw={600} size="lg" c="dimmed">Shopping cart is empty</Text>
             </Stack>
           </Center>
         ) : (
@@ -197,7 +197,7 @@ export function CartView() {
                 onClick={() => navigate('/summary')}
                 style={{ letterSpacing: '0.5px' }}
               >
-                PROCEED TO SUMMARY
+                PROCEED TO  CHECKOUT
               </Button>
             </Group>
           </Stack>

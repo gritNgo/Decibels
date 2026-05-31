@@ -1,5 +1,5 @@
-import { AppShell, Group, Anchor, Button, Container, Text, Divider } from '@mantine/core';
-import { Link, Outlet } from 'react-router-dom';
+import { AppShell, Group, Anchor, Button, Container, Text, Divider, Menu } from '@mantine/core';
+import { Link, Outlet, useNavigate } from 'react-router-dom';
 import { IconBrandGithub, IconBrandLinkedin } from '@tabler/icons-react';
 // Global reactive state hooks
 import { useAuth } from '../context/AuthContext';
@@ -7,7 +7,15 @@ import { useCart } from '../context/CartContext';
 
 export function Layout() {
   const { isAuthenticated, isAdmin, logout } = useAuth();
-  const { cartCount } = useCart(); // Destructure live reactive counter state
+    const { cartCount } = useCart(); // Destructure live reactive counter state
+  const navigate = useNavigate(); // INITIALIZE NAVIGATOR
+
+  // Explicit interceptor ensures security states wipe before route context switches
+  const handleLogoutClick = () => {
+    logout();
+    navigate('/');
+  };
+
 
   return (
     <AppShell
@@ -17,16 +25,19 @@ export function Layout() {
         main: { background: 'var(--mantine-color-dark-8)', minHeight: '100vh', display: 'flex', flexDirection: 'column' }
       }}
     >
+
       {/* HEADER SECTION */}
       <AppShell.Header px="md">
         <Container size="lg" h="100%">
-          <Group justify="space-between" h="100%">            
-            <Anchor component={Link} to="/" style={{ display: 'flex', alignItems: 'center' }}>
+          <Group justify="space-between" align="center" h="100%" wrap="nowrap">            
+            
+            {/* BRAND LOGO LANE - Pinned Left */}
+            <Anchor component={Link} to="/" style={{ display: 'flex', alignItems: 'center', flexShrink: 0 }}>
               <img 
                 src="/images/logo.png" 
                 alt="Decibels Logo" 
                 style={{ 
-                  height: '40px',             
+                  height: '36px', // Slightly tightened for mobile optimization             
                   width: 'auto',              
                   display: 'block',
                   filter: 'invert(1) brightness(1.5)', 
@@ -37,58 +48,99 @@ export function Layout() {
               />
             </Anchor>
 
-            {/* NAV NAVIGATION LINKS */}
-            <Group gap="sm">
+            {/* MIDDLE NAVIGATION LINKS - Fills available space, wraps cleanly internally */}
+            <Group gap="xs" justify="center" style={{ flex: 1, minWidth: 0, flexWrap: 'nowrap' }}>
               <Anchor component={Link} to="/" c="dimmed" size="sm">Home</Anchor>
               
-              {isAuthenticated && (
-                <Anchor 
-                  component={Link} 
-                  to={isAdmin ? "/admin/orders" : "/orders"} 
-                  c="dimmed" 
-                  size="sm"
-                  visibleFrom="sm" 
-                >
-                  {isAdmin ? "Order Management" : "My Orders"}
-                </Anchor>
+              {/* ADMIN VIEW: Dropdown Menu (Removed hover trigger to ensure robust click-to-toggle toggle on all devices) */}
+              {isAuthenticated && isAdmin && (
+                <Menu shadow="md" width={180} openDelay={50} closeDelay={100}>
+                  <Menu.Target>
+                    <Anchor c="dimmed" size="sm" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', userSelect: 'none' }}>
+                      Manage ▼
+                    </Anchor>
+                  </Menu.Target>
+
+                  <Menu.Dropdown bg="var(--mantine-color-dark-7)" style={{ border: '1px solid var(--mantine-color-dark-4)' }}>
+                    {/* Clean room removal of Menu.Label - Safe execution */}
+                    <Menu.Item 
+                      component={Link} 
+                      to="/admin/orders"
+                      c="var(--mantine-color-dark-0)"
+                    >
+                      Orders
+                    </Menu.Item>
+                    <Menu.Item 
+                      component={Link} 
+                      to="/admin/products"
+                      c="var(--mantine-color-dark-0)"
+                    >
+                      Products
+                    </Menu.Item>
+                  </Menu.Dropdown>
+                </Menu>
               )}
-              
-              {isAdmin && (
+
+              {/* STANDARD CUSTOMER VIEW: Direct Link */}
+              {isAuthenticated && !isAdmin && (
                 <Anchor 
                   component={Link} 
-                  to="/admin/products" 
+                  to="/orders" 
                   c="dimmed" 
                   size="sm"
-                  visibleFrom="sm" 
                 >
-                  Product Management
+                  <Text component="span" visibleFrom="xs">My Orders</Text>
+                  <Text component="span" hiddenFrom="xs">Orders</Text>
                 </Anchor>
               )}
 
               {isAuthenticated && (
-                <Anchor component={Link} to="/cart" c="dimmed" size="sm">
+                <Anchor component={Link} to="/cart" c="dimmed" size="sm" style={{ whiteSpace: 'nowrap' }}>
                   Cart ({cartCount})
                 </Anchor>
               )}
             </Group>
 
-            {/* LOGIN / IDENTITY ACTIONS */}
-            <Group gap="sm">
+            {/* IDENTITY ACTIONS LANE - Pinned Right, Never shrinks or wraps out */}
+            <Group gap="sm" justify="flex-end" style={{ flexShrink: 0 }}>
               {isAuthenticated ? (
-                <Button variant="light" color="red" size="xs" onClick={logout}>Logout</Button>
+                <Button variant="light" color="red" size="xs" onClick={handleLogoutClick}>Logout</Button>
               ) : (
                 <Button component={Link} to="/login" variant="light" size="xs">Login</Button>
               )}
             </Group>
+
           </Group>
         </Container>
       </AppShell.Header>
 
       {/* CORE VIEWPORT LAYER */}
-      <AppShell.Main style={{ flex: 1, display: 'flex', flexDirection: 'column' }}>
-        <Container size="lg" py="xl" style={{ flex: 1, width: '100%' }}>
-          {/* Outlet is the dynamic zone where nested child route pages render */}
-          <Outlet />
+      <AppShell.Main style={{ flex: 1, display: 'flex', flexDirection: 'column', minWidth: 0 }}>
+        <Container 
+          size="lg" 
+          py="xl" 
+          style={{ 
+            flex: 1, 
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            minWidth: 0
+          }}
+        >
+          {/* ISOLATED WRAPPER BOX: 
+            This div explicitly catches overflowing tables or data grids generated by child components,
+            safeguarding the screen edges and enabling smooth momentum horizontal swipe-scrolling on all mobile browsers.
+          */}
+          <div 
+            style={{ 
+              width: '100%', 
+              overflowX: 'auto', 
+              WebkitOverflowScrolling: 'touch' 
+            }}
+          >
+            {/* Outlet is the dynamic zone where nested child route pages render */}
+            <Outlet />
+          </div>
         </Container>
 
        {/* PERSISTENT FOOTER */}

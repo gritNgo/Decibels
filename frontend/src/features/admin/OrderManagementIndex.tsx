@@ -81,7 +81,7 @@ useEffect(() => {
       case 'inprocess': return <Badge color="orange.5" variant="light">In Process</Badge>;
       case 'shipped': return <Badge color="green.5" variant="filled">Shipped</Badge>;
       case 'cancelled': return <Badge color="red.5" variant="outline">Cancelled</Badge>;
-      case 'pending': return <Badge color="cyan.5" variant="light">Pending Payment</Badge>;
+      case 'pending': return <Badge color="cyan.5" variant="light">Pending</Badge>;
       default: return <Badge color="gray.5" variant="light">{status || 'Unknown'}</Badge>;
     }
   };
@@ -133,48 +133,52 @@ useEffect(() => {
       ) : orders.length === 0 ? (
         <Paper p="xl" radius="md" bg="dark.7" withBorder style={{ textAlign: 'center', borderColor: 'var(--mantine-color-dark-4)' }}>
           <IconInbox size={48} color="var(--mantine-color-dark-3)" style={{ marginBottom: '12px' }} />
-          <Text size="sm" c="dimmed">No transaction records mapped to this status filter configuration.</Text>
+          <Text size="sm" c="dimmed">No transaction records</Text>
         </Paper>
       ) : (
-        <Paper radius="md" bg="dark.7" withBorder style={{ overflow: 'hidden', borderColor: 'var(--mantine-color-dark-4)' }}>
-          <Table verticalSpacing="sm" horizontalSpacing="md" highlightOnHover style={{ color: 'var(--mantine-color-gray-3)' }}>
-            <Table.Thead style={{ backgroundColor: 'var(--mantine-color-dark-8)', borderBottom: '1px solid var(--mantine-color-dark-4)' }}>
-              <Table.Tr>
-                <Table.Th style={{ color: 'var(--mantine-color-gray-4)' }}>ID</Table.Th>
-                <Table.Th style={{ color: 'var(--mantine-color-gray-4)' }}>Recipient Name</Table.Th>
-                <Table.Th style={{ color: 'var(--mantine-color-gray-4)' }}>Phone Connection</Table.Th>
-                <Table.Th style={{ color: 'var(--mantine-color-gray-4)' }}>Workflow Status</Table.Th>
-                {/* Merged duplicate style declarations into a unified structural descriptor layout */}
-                <Table.Th style={{ color: 'var(--mantine-color-gray-4)', textAlign: 'right' }}>Revenue Gross</Table.Th>
-                <Table.Th style={{ color: 'var(--mantine-color-gray-4)' }}></Table.Th>
-              </Table.Tr>
-            </Table.Thead>
-            <Table.Tbody>
-              {orders.map((order) => (
-                <Table.Tr key={order.id} style={{ borderBottom: '1px solid var(--mantine-color-dark-5)' }}>
-                  <Table.Td fw={600} c="white">#{order.id}</Table.Td>
-                  <Table.Td>{order.name}</Table.Td>
-                  {/* Replaced non-existent custom property with correct native Mantine font family string */}
-                  <Table.Td><Text size="xs" style={{ fontFamily: 'monospace' }}>{order.phoneNumber}</Text></Table.Td>
-                  <Table.Td>{getStatusBadge(order.orderStatus)}</Table.Td>
-                  <Table.Td style={{ textAlign: 'right', fontWeight: 600 }} c="green.4">
-                    €{order.orderTotal.toFixed(2)}
-                  </Table.Td>
-                  <Table.Td style={{ textAlign: 'right' }}>
-                    <Tooltip label="Open Operational Control Panel" position="left" withArrow radius="xs">
-                      <ActionIcon 
-                        variant="light" 
-                        color="blue" 
-                        onClick={() => navigate(`/admin/orders/${order.id}`)}
-                      >
-                        <IconEye size={16} />
-                      </ActionIcon>
-                    </Tooltip>
-                  </Table.Td>
+        /* Modified overflow hidden to 'auto' to enable internal scrolling layout controls */
+        <Paper radius="md" bg="dark.7" withBorder style={{ overflow: 'auto', borderColor: 'var(--mantine-color-dark-4)' }}>
+          
+          {/* Mantine ScrollContainer guarantees horizontal axis swiping for multi-column relational datasets */}
+          <Table.ScrollContainer minWidth={750}>
+            <Table verticalSpacing="sm" horizontalSpacing="md" highlightOnHover style={{ color: 'var(--mantine-color-gray-3)' }}>
+              <Table.Thead style={{ backgroundColor: 'var(--mantine-color-dark-8)', borderBottom: '1px solid var(--mantine-color-dark-4)' }}>
+                <Table.Tr>
+                  <Table.Th style={{ color: 'var(--mantine-color-gray-4)' }}>ID</Table.Th>
+                  <Table.Th style={{ color: 'var(--mantine-color-gray-4)' }}>Recipient Name</Table.Th>
+                  <Table.Th style={{ color: 'var(--mantine-color-gray-4)' }}>Phone Connection</Table.Th>
+                  <Table.Th style={{ color: 'var(--mantine-color-gray-4)' }}>Workflow Status</Table.Th>
+                  <Table.Th style={{ color: 'var(--mantine-color-gray-4)', textAlign: 'right' }}>Revenue Gross</Table.Th>
+                  <Table.Th style={{ color: 'var(--mantine-color-gray-4)' }}></Table.Th>
                 </Table.Tr>
-              ))}
-            </Table.Tbody>
-          </Table>
+              </Table.Thead>
+              <Table.Tbody>
+                {orders.map((order) => (
+                  <Table.Tr key={order.id} style={{ borderBottom: '1px solid var(--mantine-color-dark-5)' }}>
+                    <Table.Td fw={600} c="white">#{order.id}</Table.Td>
+                    <Table.Td>{order.name}</Table.Td>
+                    <Table.Td><Text size="xs" style={{ fontFamily: 'monospace' }}>{order.phoneNumber}</Text></Table.Td>
+                    <Table.Td>{getStatusBadge(order.orderStatus)}</Table.Td>
+                    <Table.Td style={{ textAlign: 'right', fontWeight: 600 }} c="green.4">
+                      €{order.orderTotal.toFixed(2)}
+                    </Table.Td>
+                    <Table.Td style={{ textAlign: 'right' }}>
+                      <Tooltip label="Open Operational Control Panel" position="left" withArrow radius="xs">
+                        <ActionIcon 
+                          variant="light" 
+                          color="blue" 
+                          onClick={() => navigate(`/admin/orders/${order.id}`)}
+                        >
+                          <IconEye size={16} />
+                        </ActionIcon>
+                      </Tooltip>
+                    </Table.Td>
+                  </Table.Tr>
+                ))}
+              </Table.Tbody>
+            </Table>
+          </Table.ScrollContainer>
+          
         </Paper>
       )}
     </Container>

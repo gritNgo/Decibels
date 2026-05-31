@@ -73,7 +73,7 @@ export function OrderConfirmationView() {
       <Center style={{ height: '50vh' }}>
         <Stack align="center" gap="md">
           <Loader size="lg" color="blue" type="dots" />
-          <Text size="sm" c="dimmed">Executing real-time Stripe sandbox synchronization handshakes...</Text>
+          <Text size="sm" c="dimmed">Executing Stripe sandbox handshakes...</Text>
         </Stack>
       </Center>
     );

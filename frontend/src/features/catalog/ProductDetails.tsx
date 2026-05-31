@@ -4,6 +4,7 @@ import { catalogApi } from '../../api/catalog';
 import { cartApi } from '../../api/cart';
 // global cart hook refreshCartCount() immediately after the upsertItem promise resolves
 import { useCart } from '../../context/CartContext'; 
+import { useAuth } from '../../context/AuthContext'; 
 import type { ShoppingCart } from '../../types';
 import { 
   Container, 
@@ -22,6 +23,7 @@ import {
   Divider,
   ActionIcon
 } from '@mantine/core';
+import { notifications } from '@mantine/notifications';
 import { IconArrowLeft, IconShoppingCart, IconPlus, IconMinus } from '@tabler/icons-react';
 
 type DetailState =
@@ -33,6 +35,7 @@ export function ProductDetails() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const { refreshCartCount } = useCart(); // Extract the reactive synchronization method
+  const { isAuthenticated } = useAuth();
   
   // If the ID route parameter context is missing entirely, seed the error immediately to satisfy ESLint
   const [state, setState] = useState<DetailState>(() => 
@@ -62,29 +65,54 @@ export function ProductDetails() {
 
   const handleAddToCart = async () => {
     if (!id) return;
+
+    // INTERCEPTION GATE: Intercept unauthenticated customer profiles
+    if (!isAuthenticated) {
+      notifications.show({
+        title: 'Authentication Required',
+        message: 'Please sign in to your account to modify your personal shopping cart allocation.',
+        color: 'yellow',
+        autoClose: 4000,
+        withCloseButton: true,
+        styles: {
+          root: { backgroundColor: 'var(--mantine-color-dark-6)', border: '1px solid var(--mantine-color-yellow-8)' },
+          title: { color: 'var(--mantine-color-yellow-4)', fontWeight: 600 },
+          description: { color: 'var(--mantine-color-dark-0)' }
+        }
+      });
+      
+      // Preserve UX velocity by pushing them to the login stream instantly
+      navigate('/login');
+      return;
+    }
+
     setIsAdding(true);
     try {
       // Call the dedicated POST upsert route instead of PATCH plus
-    // We send the actual product identity context alongside the selected input quantity state counter
+      // We send the actual product identity context alongside the selected input quantity state counter
       await cartApi.upsertItem(Number(id), Number(quantity)); 
       
       // Force the global layout engine to put the current database state into reactive memory
       await refreshCartCount();
       
-    // Success: Seamless transition to the updated shopping cart layout
+      // Success: Seamless transition to the updated shopping cart layout
       navigate('/cart');
     } catch (err) {
       console.error("Failed to append entry to persistent storage:", err);
+      notifications.show({
+        title: 'Cart Processing Error',
+        message: 'Could not synchronize cart data arrays with backend instances.',
+        color: 'red'
+      });
     } finally {
       setIsAdding(false);
     }
   };
-
   if (state.status === 'loading') {
     return (
       <Group justify="center" py="xl" my="xl">
         <Loader size="xl" type="bars" color="blue.4" />
-        <Text size="md" c="dimmed" fw={500}>De-serializing product inventory metadata parameters...</Text>
+        <Text size="md" c="dimmed" fw={500}>Loading...</Text>
       </Group>
     );
   }

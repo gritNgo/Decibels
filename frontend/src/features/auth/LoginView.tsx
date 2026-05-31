@@ -81,9 +81,6 @@ export function LoginView() {
           <Title order={2} fw={700} c="white" style={{ textTransform: 'uppercase', letterSpacing: '-0.5px' }}>
             Login
           </Title>
-          <Text size="sm" c="dimmed">
-            Access secure e-commerce persistence channels
-          </Text>
         </Stack>
 
         {error && (
@@ -129,11 +126,11 @@ export function LoginView() {
         </form>
 
         {/* RECRUITER / ARCHITECT EVALUATION PORTAL BYPASS BLOCK */}
-        <Divider label="RECRUITER / ARCHITECT EVALUATION PORTAL" labelPosition="center" my="xl" />
+        <Divider label="ENGINEER EVALUATION PORTAL" labelPosition="center" my="xl" />
 
         <Paper p="sm" radius="md" bg="dark.8" withBorder style={{ borderColor: 'var(--mantine-color-yellow-8)' }}>
           <Text size="xs" c="yellow.5" mb="md" fw={500} style={{ textAlign: 'center', lineHeight: '1.4' }}>
-            Execute rapid end-to-end technical reviews using pre-seeded infrastructure accounts:
+            Skip registration and use the pre-seeded demo accounts for quick end-end reviews:
           </Text>
           
           <Group grow gap="xs">
@@ -146,7 +143,7 @@ export function LoginView() {
               loading={loading}
               onClick={() => handleSandboxDemoBypass('Customer')}
             >
-              Demo Customer
+              Customer
             </Button>
             
             <Button 
@@ -158,7 +155,7 @@ export function LoginView() {
               loading={loading}
               onClick={() => handleSandboxDemoBypass('Admin')}
             >
-              Demo Admin
+              Admin
             </Button>
           </Group>
         </Paper>

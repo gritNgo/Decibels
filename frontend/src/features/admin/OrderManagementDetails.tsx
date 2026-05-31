@@ -158,7 +158,7 @@ export function OrderManagementDetails() {
     return (
       <Group justify="center" py="xl" my="xl">
         <Loader size="xl" type="bars" color="blue.4" />
-        <Text size="md" c="dimmed">Assembling order ledger structures...</Text>
+        <Text size="md" c="dimmed">Loading...</Text>
       </Group>
     );
   }

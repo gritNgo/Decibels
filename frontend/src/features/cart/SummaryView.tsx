@@ -131,7 +131,7 @@ export function SummaryView() {
     return (
       <Group justify="center" py="xl" my="xl">
         <Loader size="xl" type="bars" color="blue.4" />
-        <Text size="md" c="dimmed" fw={500}>Assembling financial ledger summaries...</Text>
+        <Text size="md" c="dimmed" fw={500}>Loading...</Text>
       </Group>
     );
   }
@@ -156,7 +156,7 @@ export function SummaryView() {
       </Button>
 
       <Title order={2} mb="xl" c="white" fw={700} style={{ letterSpacing: '-0.5px' }}>
-        ORDER SUMMARY SPECIFICATION
+        ORDER SUMMARY 
       </Title>
 
       <form onSubmit={handlePlaceOrder}>
@@ -262,7 +262,7 @@ export function SummaryView() {
                   leftSection={<IconCreditCard size={18} />}
                   fullWidth
                 >
-                  PROCEED TO STRIPE GATEWAY
+                  BUY WITH STRIPE
                 </Button>
               </Stack>
             </Paper>

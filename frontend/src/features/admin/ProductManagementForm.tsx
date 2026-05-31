@@ -215,7 +215,7 @@ export function ProductManagementForm() {
             />
 
             <NumberInput
-              label="Unit Price (€)"
+              label="Price (€)"
               placeholder="199.99"
               required
               min={0.01}
