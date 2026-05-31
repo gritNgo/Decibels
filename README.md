@@ -1,44 +1,149 @@
-# Decibels - Real-world E-commerce Application
+# Decibels ── Real-World E-Commerce Engineering Transformation
 
-**Decibels** is a real-world e-commerce application for musical instruments, deployed on Azure. It showcases the use of a wide range of modern technologies and development practices. **(To complete a test purchase, use card number `4242424242424242` with any valid future expiry date and CVC)**
+[![Frontend Deployment](https://github.com/gritNgo/Decibels/actions/workflows/frontend-ci-cd.yml/badge.svg)](https://github.com/gritNgo/Decibels/actions)
+[![API CI/CD Build](https://github.com/gritNgo/Decibels/actions/workflows/api-ci-cd.yml/badge.svg)](https://github.com/gritNgo/Decibels/actions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+Decibels is a production-grade musical instruments e-commerce platform that serves as an architectural case study in migrating a legacy enterprise monolith into a modern, decoupled cloud-native ecosystem.
+
+Originally built as a .NET Core MVC monolith, this project outlines a targeted **Shadow Sprint** execution—decoupling the application into a high-performance **.NET 8 Web API** backend and an optimized **React / TypeScript** single-page application frontend, running entirely containerized via Docker on Azure infrastructure.
+
+- **Production URL:** [https://lively-pond-00d432003.7.azurestaticapps.net](https://lively-pond-00d432003.7.azurestaticapps.net)
+- **Test Purchase Credential (Stripe Sandbox):** Card `4242 4242 4242 4242` | Any future expiry | Any 3-digit CVC.
 
 ---
 
-## Technologies & Architecture
+## 🏛️ Architectural Evolution: Monolith to Decoupled SPA
 
-### .NET Stack
-- **.NET 8 (ASP.NET Core MVC)**
-- **Entity Framework Core (Code-First)**: For seamless database interaction and schema management.
-- **ASP.NET Core Identity**: Robust user authentication and authorization system.
-- **Role Management**: Implemented for granular access control (e.g., Customer, Admin, Employee, Company).
-- **Areas**: For better organization and modularity of the application.
-- **Session & Cookie Management**: For handling user sessions and preferences.
-- **LINQ**: For efficient data querying.
-- **Repository and Unit of Work Patterns**: Applied for a clean, testable, and maintainable data access layer.
-- **N-Tier Architecture**: Ensuring clear separation of concerns within the application layers.
+The primary goal of this engineering phase was to eliminate tight coupling, reduce deployment friction, and establish modern boundaries without disrupting the existing relational data model.
 
-### Azure Services & Cloud Practices
-- **Azure App Service**: Hosting the web application with a focus on scalability and reliability.
-  - **Deployment Slots (Staging and Production)**: For zero-downtime deployments and testing in a pre-production environment.
-  - **Secure Configuration with Application Settings**: Managing sensitive data (e.g., connection strings, API keys) securely in the cloud, separate from source code.
-- **Azure SQL Server & SQL Database**: Reliable and scalable relational database for storing application data.
-- **Azure Blob Storage**: Utilized for persistent storage and serving of product images, enhancing performance and scalability.
-- **Azure Active Directory Workload Identity**: For secure, automated authentication of CI/CD pipelines to Azure resources, eliminating the need for secrets in GitHub Actions.
-- **GitHub Actions CI/CD**: Automated pipelines for Continuous Integration and Continuous Deployment to both staging and production environments.
+```text
+  [ Legacy .NET MVC Monolith ]
+                │
+                ▼ (Architectural Refactor & Decoupling)
+                │
+    ┌───────────┴─────────────────────────────┐
+    ▼                                         ▼
+[ React + TypeScript SPA ]            [ .NET 8 Web API (REST) ]
+├── Mantine UI Components             ├── Clean Architecture / UoW
+└── Vite Build Engine                 └── EF Core / SQL Server 2022
+    │                                         │
+    ▼ (CI/CD via GitHub Actions)              ▼ (CI/CD via GitHub Actions)
+[ Azure Static Web Apps ]             [ Azure Container Apps (Docker) ]
+                                              │
+                                              ▼ (Cloud Data Tier)
+                                              ├── Azure SQL Database
+                                              └── Azure Blob Storage
+```
 
-### Core Features
-- **Product Catalog**: Users can view and browse a wide range of musical instruments.
-- **User Registration & Authentication**: Secure registration and login functionalities.
-- **Shopping Cart Management**: Comprehensive CRUD operations for customers to manage their cart items.
-- **Order Management**: Full CRUD capabilities for order processing, accessible by authorized roles (Customer/Admin/Employee/Company).
-- **Secure Payments (Stripe)**: Integration of Stripe for seamless and secure payment processing. 
-- **Social Login**: Enhanced user experience with Facebook registration/login.
-- **Responsive Design**: Ensuring optimal viewing experience across various devices (desktop, tablet, mobile).
-- **REST API**: Underlying API design for data interaction.
+### Legacy Baseline (Preserved History)
 
-### Libraries & Tools
-- **Bootstrap v5**: Modern and responsive frontend framework for UI components.
-- **DataTables**: For interactive and efficient display of tabular data.
-- **Toastr**: For elegant and non-intrusive notification messages.
-- **SSMS (SQL Server Management Studio)**: For database management and querying.
-- **TinyMCE**: Rich text editing
+- **Backend:** ASP.NET Core MVC Monolith utilizing server-side HTML rendering.
+- **Frontend UI:** Bootstrap v5 with jQuery, DataTables, and heavy inline script manipulation.
+- **Hosting:** Standard Azure App Services with deployment slots.
+
+### Modern Target State (Current Production)
+
+- **Backend API:** Hexagonal/N-Tier .NET 8 Web API enforcing strict separation of concerns via Repository and Unit of Work patterns.
+- **Frontend SPA:** React 18 with TypeScript compiled via Vite, using Mantine UI for lightweight, highly accessible UI components and custom dark-mode aesthetics.
+- **Containerization:** API execution isolated inside Docker containers running Linux Alpine bases for minimal image footprinting.
+- **Cloud Native Infrastructure:** Migrated hosting to **Azure Container Apps (ACA)** for container orchestration and **Azure Static Web Apps (SWA)** for optimized global SPA edge routing.
+
+---
+
+## 🛠️ Tech Stack & Production System Components
+
+### 🖥️ Frontend Single-Page Application
+
+- **Core Engine:** React 18 (TypeScript) with Vite for sub-second hot module reloading (HMR).
+- **Component Framework:** Mantine UI (`@mantine/core`, `@mantine/hooks`) optimizing component load metrics.
+- **State & Routing:** React Router DOM (v6 layout-outlet isolation models) alongside decoupled Context Providers (`AuthContext`, `CartContext`) handling global reactive telemetry signals.
+- **Vector Mechanics:** Tabler Icons for consistent, performant visual cues.
+
+### ⚙️ Backend Web API Services
+
+- **Runtime Environment:** .NET 8 (ASP.NET Core Web API).
+- **Identity & Protection:** ASP.NET Core Identity with role-based JWT bearer token validation models mapping granular user tiers (`Customer`, `Admin`).
+- **Data Access Layer:** Entity Framework Core (Code-First) targeting SQL Server 2022 syntax profiles.
+- **Seeding Logic:** Defensive database initialization guarded via conditional validation checkpoints (`!_db.Products.Any()`) to guarantee telemetry persistence over independent code recycling iterations.
+
+### ☁️ Cloud Infrastructure & DevSecOps
+
+- **Compute Orchestration:** Azure Container Apps (ACA) pinned to a 1-replica minimum threshold to mitigate .NET JIT compiler overhead and runtime warmup penalties.
+- **Static Assets Engine:** Azure Static Web Apps (SWA) managing client distribution.
+- **Relational Storage:** Azure SQL Database running independent cloud-isolated schemas.
+- **Object Storage Array:** Azure Blob Storage (`stdecibelsprod`) for hot-tier persistence of product images.
+- **Security & Pipeline Identity:** Federated Azure Workload Identities connecting GitHub Actions runners to Azure ARM APIs via ephemeral OIDC tokens—eliminating raw production passwords inside repository secrets.
+- **Continuous Deployment Architecture:** The CI/CD pipeline enforces an automated, single-environment deployment model. Backed by strict NUnit and xUnit automated test gates that block faulty builds, this design eliminates unnecessary pre-production infrastructure overhead while guaranteeing maximum deployment velocity under a highly disciplined, time-boxed sprint.
+
+---
+
+## 🧪 Testing Strategy Under Constraints
+
+Faced with extreme time compression during the decoupling sprint, a standard full-app regression suite was de-scoped in favor of disciplined execution at the system boundaries.
+
+- **Automated Pipeline Quality Gates:** Both **NUnit** unit tests and **xUnit** integration suites are completely automated within the GitHub Actions CI/CD workflows, executing silently on every code push to block broken builds from entering the production environments.
+- **Targeted Contract Testing:** Focused strictly on structural validation of core REST API boundaries using **NUnit** (with Moq and FluentAssertions) and **xUnit** integration suites utilizing **Testcontainers.MsSql** to drive live database validation.
+- **Mechanics Demonstrated:** Validated API routing contracts, model validation handlers, multipart form file asset mutations, empty cart validation guards, and accurate execution of HTTP status codes, ensuring API integrations are protected against downstream frontend mutations..
+
+---
+
+## 💎 Core Features
+
+- **Unified Navigation Matrix:** Responsive header containing adaptive role-based isolation utilities (hiding administrative links on mobile viewports using Mantine's responsive primitives to avoid layout squishing).
+- **State-Driven E-Commerce Pipeline:** Asynchronous multi-item shopping cart processing engine syncing live items through a global react state context provider.
+- **Recruiter Sandbox Bypass:** Built-in one-click authentication bypass pathways on the login view for pre-seeded Customer and Admin entities to eliminate onboarding friction for technical reviewers.
+- **Secure Payment Settlement:** Fully integrated Stripe sandbox payment gateways driving structured customer checkout flows and complete EF Core record state transitions to `Approved`.
+- **Blob Data Synchronization:** Multipart form-data image uploads communicating directly with Azure Blob Storage arrays via connection strings securely mapped to Azure Container App environment secrets.
+
+---
+
+## 📈 Engineering Transformation Log (Sprint Timeline)
+
+> **Sprint Duration:** May 24, 2026 – May 30, 2026 (7 Days)
+
+This project’s Git history reflects a high-velocity case study of engineering transformation. The chronological progression of the refactor highlights clear-room architectural execution:
+
+1. **Monorepo Scaffolding & API Decoupling:** Restricted repository layout to a monorepo pattern, migrating Category, Company, Order, and Cart controllers to explicit RESTful `ControllerBase` structures.
+2. **Infrastructure & Pipeline Setup:** Established optimized multi-stage production Dockerfiles, switched Azure authentication to secure service principal credentials, and isolated multi-environment configurations (`.env.production`).
+3. **Stateless Authentication Engine:** Implemented a backend JWT authentication pipeline with signed cryptographic claims, removing legacy Razor identity code-behinds, and integrated a type-safe Mantine UI `LoginView`.
+4. **Structured Enterprise Telemetry:** Replaced plain-text logging providers with Serilog JSON telemetry streams directed to `stdout` for cloud-native log aggregation.
+5. **Frontend Core Mesh:** Initialized Vite React/TS workspace, implemented a master responsive layout via Mantine's `AppShell`, and hooked up public catalog grids with dynamic `AbortController` cleanup handling.
+6. **State Synchronization & Checkout:** Wired global reactive context badges (`CartContext`) to map quantity increments, synchronized state dispatches with EF Core backend boundaries, and implemented Stripe checkout sandbox redirection loops.
+7. **Idempotence & Real-Time Tooling:** Refactored `DbInitializer` to be fully idempotent with isolated demo targets protected against connection resets. Built a real-time local file binary preview window directly into the product management inventory forms.
+8. **Responsive Alignment & Universal Role Access:** Developed a cross-device symmetric footer component, resolved layout typing bugs, and eliminated administrative short-circuit blocks within the `CartContext` to allow universal cart preview capabilities for all authenticated evaluation profiles.
+
+---
+
+## 🚀 Local Engineering Setup
+
+### Prerequisites
+
+- .NET 8 SDK
+- Node.js (v18+)
+- Docker Desktop
+- SQL Server Express or SSMS
+
+### 1. Backend API Setup
+
+```bash
+cd backend/Decibels.API
+dotnet restore
+# Update AppSettings with local database strings if necessary
+dotnet run
+2. Frontend React Setup
+Bash
+cd frontend
+npm install
+# Configure your local .env tracking file pointing to localhost API
+npm run dev
+3. Production Compilation Verification
+Simulate production environment constraints by compiling locally before committing code to the cloud:
+
+Bash
+cd frontend
+npm run build
+📜 Repository Metrics & History Insight
+This repository functions deliberately as a high-velocity case study of engineering transformation. The commit logging and branch topologies are structured to explicitly display clean-room refactoring paradigms, defensive code migrations, and architectural discipline under real-world timeline constraints.
+
+Developed by Fiorenso Wattalage Fernando.
