@@ -48,58 +48,37 @@ export function Layout() {
               />
             </Anchor>
 
-            {/* MIDDLE NAVIGATION LINKS - Fills available space, wraps cleanly internally */}
-            <Group gap="xs" justify="center" style={{ flex: 1, minWidth: 0, flexWrap: 'nowrap' }}>
-              <Anchor component={Link} to="/" c="dimmed" size="sm">Home</Anchor>
-              
-              {/* ADMIN VIEW: Dropdown Menu (Removed hover trigger to ensure robust click-to-toggle toggle on all devices) */}
-              {isAuthenticated && isAdmin && (
-                <Menu shadow="md" width={180} openDelay={50} closeDelay={100}>
-                  <Menu.Target>
-                    <Anchor c="dimmed" size="sm" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', userSelect: 'none' }}>
-                      Manage ▼
-                    </Anchor>
-                  </Menu.Target>
+{/* MIDDLE NAVIGATION LINKS */}
+<Group gap="md" justify="center" style={{ flex: 1, minWidth: 0, flexWrap: 'nowrap' }}>
+  {/* ADMIN VIEW */}
+  {isAuthenticated && isAdmin && (
+    <Menu shadow="md" width={180} openDelay={50} closeDelay={100}>
+      <Menu.Target>
+        <Anchor c="dimmed" size="sm" style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', userSelect: 'none', whiteSpace: 'nowrap' }}>
+          Manage ▼
+        </Anchor>
+      </Menu.Target>
+      <Menu.Dropdown bg="var(--mantine-color-dark-7)" style={{ border: '1px solid var(--mantine-color-dark-4)' }}>
+        <Menu.Item component={Link} to="/admin/orders" c="var(--mantine-color-dark-0)">Orders</Menu.Item>
+        <Menu.Item component={Link} to="/admin/products" c="var(--mantine-color-dark-0)">Products</Menu.Item>
+      </Menu.Dropdown>
+    </Menu>
+  )}
 
-                  <Menu.Dropdown bg="var(--mantine-color-dark-7)" style={{ border: '1px solid var(--mantine-color-dark-4)' }}>
-                    {/* Clean room removal of Menu.Label - Safe execution */}
-                    <Menu.Item 
-                      component={Link} 
-                      to="/admin/orders"
-                      c="var(--mantine-color-dark-0)"
-                    >
-                      Orders
-                    </Menu.Item>
-                    <Menu.Item 
-                      component={Link} 
-                      to="/admin/products"
-                      c="var(--mantine-color-dark-0)"
-                    >
-                      Products
-                    </Menu.Item>
-                  </Menu.Dropdown>
-                </Menu>
-              )}
+  {/* STANDARD CUSTOMER VIEW */}
+  {isAuthenticated && !isAdmin && (
+    <Anchor component={Link} to="/orders" c="dimmed" size="sm" style={{ whiteSpace: 'nowrap' }}>
+      <Text component="span" visibleFrom="xs">My Orders</Text>
+      <Text component="span" hiddenFrom="xs">Orders</Text>
+    </Anchor>
+  )}
 
-              {/* STANDARD CUSTOMER VIEW: Direct Link */}
-              {isAuthenticated && !isAdmin && (
-                <Anchor 
-                  component={Link} 
-                  to="/orders" 
-                  c="dimmed" 
-                  size="sm"
-                >
-                  <Text component="span" visibleFrom="xs">My Orders</Text>
-                  <Text component="span" hiddenFrom="xs">Orders</Text>
-                </Anchor>
-              )}
-
-              {isAuthenticated && (
-                <Anchor component={Link} to="/cart" c="dimmed" size="sm" style={{ whiteSpace: 'nowrap' }}>
-                  Cart ({cartCount})
-                </Anchor>
-              )}
-            </Group>
+  {isAuthenticated && (
+    <Anchor component={Link} to="/cart" c="dimmed" size="sm" style={{ whiteSpace: 'nowrap' }}>
+      Cart ({cartCount})
+    </Anchor>
+  )}
+</Group>
 
             {/* IDENTITY ACTIONS LANE - Pinned Right, Never shrinks or wraps out */}
             <Group gap="sm" justify="flex-end" style={{ flexShrink: 0 }}>
